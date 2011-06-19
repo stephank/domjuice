@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>DOMJuice tests</title>
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.1.6/underscore-min.js"></script>
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/backbone.js/0.3.3/backbone-min.js"></script>
+  <script src="domjuice.coffee" type="text/coffeescript"></script>
+  <script src="domjuice-backbone.coffee" type="text/coffeescript"></script>
+  <script src="http://jashkenas.github.com/coffee-script/extras/coffee-script.js"></script>
+</head>
+<body>
+
+<div id="template">
+  <h1 content:="title"></h1>
+  <div section:="chapters">
+    <h2>
+      <a name:="anchor" content:="heading"></a>
+    </h2>
+    <p content:="text"></p>
+  </div>
+</div>
+
+<div id="result"></div>
+
+<script type="text/coffeescript">
+  TestTemplate = DOMJuice document.getElementById 'template'
+
+  TestModel = Backbone.Model.extend()
+  TestCollection = Backbone.Collection.extend
+    model: TestModel
+
+  collection = new TestCollection
+  i = 0;
+  setInterval ->
+    if ++i is 12
+      i = 0
+      collection.refresh()
+      return
+
+    if i is 5
+      collection.remove collection.models[2]
+
+    if i is 8
+      collection.models[0].set
+        heading: "Awesome!"
+
+    collection.add
+      heading: "Chapter " + i
+      anchor: "c" + i
+      text: "This is a test. Yadda yadda, bla bla"
+  , 300
+
+  instance = new TestTemplate
+    title: 'DOMJuice tests'
+    chapters: collection
+  result = document.getElementById 'result'
+  result.appendChild instance.el
+</script>
+
+</body>
+</html>
