@@ -271,7 +271,7 @@ class DefaultAdaptor extends Adaptor
 class Section
   # Construct a section by giving it a context object. (The `parent` parameter
   # is for internal use only.)
-  constructor: (context, parent) ->
+  constructor: (context={}, parent) ->
     # Set up the context for this section. If this is the toplevel, we expect
     # the user to give us an object. If it's an internal subsection, a
     # non-object indicates a simple conditional section, which means we just
