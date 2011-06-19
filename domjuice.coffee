@@ -81,7 +81,8 @@ class VarContent
 
   update: (value) =>
     @element.innerHTML = ''
-    @element.appendChild document.createTextNode String value or ''
+    textNode = @element.ownerDocument.createTextNode String value or ''
+    @element.appendChild textNode
 
 # The glue between parent and child sections. All sections, except the
 # template toplevel, are managed by one of these.
@@ -408,8 +409,13 @@ buildSectionClass = (template) ->
 # When passing in an `Element`, it will be detached from the document and
 # any parent element. It shouldn't be referenced or used afterwards;
 # ownership belongs to the template returned.
-DOMJuice = (template) ->
+#
+# The `document` parameter is optionally an explicit DOM `Document` to use
+# when building a template from string markup.
+DOMJuice = (template, document) ->
   if typeof template is 'string'
+    unless document ?= DOMJuice.document ? window?.document
+      throw new Error "Cannot find a DOM Document to work with"
     tmp = document.createElement 'div'
     tmp.innerHTML = template
     unless tmp.childNodes.length is 1

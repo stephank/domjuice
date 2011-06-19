@@ -55,7 +55,8 @@ the actual element to update, and the section that owns the instance.</p>       
 
   <span class="nv">update: </span><span class="p">(</span><span class="nx">value</span><span class="p">)</span> <span class="o">=&gt;</span>
     <span class="vi">@element.innerHTML = </span><span class="s1">&#39;&#39;</span>
-    <span class="nx">@element</span><span class="p">.</span><span class="nx">appendChild</span> <span class="nb">document</span><span class="p">.</span><span class="nx">createTextNode</span> <span class="nb">String</span> <span class="nx">value</span> <span class="o">or</span> <span class="s1">&#39;&#39;</span></pre></div>             </td>           </tr>                               <tr id="section-11">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-11">&#182;</a>               </div>               <p>The glue between parent and child sections. All sections, except the
+    <span class="nv">textNode = </span><span class="nx">@element</span><span class="p">.</span><span class="nx">ownerDocument</span><span class="p">.</span><span class="nx">createTextNode</span> <span class="nb">String</span> <span class="nx">value</span> <span class="o">or</span> <span class="s1">&#39;&#39;</span>
+    <span class="nx">@element</span><span class="p">.</span><span class="nx">appendChild</span> <span class="nx">textNode</span></pre></div>             </td>           </tr>                               <tr id="section-11">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-11">&#182;</a>               </div>               <p>The glue between parent and child sections. All sections, except the
 template toplevel, are managed by one of these.</p>
 
 <p>Methods of this class are used by context adaptors to update the instances
@@ -256,8 +257,13 @@ The input can be a string of markup, or a DOM <code>Element</code>.</p>
 
 <p>When passing in an <code>Element</code>, it will be detached from the document and
 any parent element. It shouldn't be referenced or used afterwards;
-ownership belongs to the template returned.</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">DOMJuice = </span><span class="nf">(template) -&gt;</span>
+ownership belongs to the template returned.</p>
+
+<p>The <code>document</code> parameter is optionally an explicit DOM <code>Document</code> to use
+when building a template from string markup.</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">DOMJuice = </span><span class="nf">(template, document) -&gt;</span>
   <span class="k">if</span> <span class="k">typeof</span> <span class="nx">template</span> <span class="o">is</span> <span class="s1">&#39;string&#39;</span>
+    <span class="nx">unless</span> <span class="nb">document</span> <span class="o">?=</span> <span class="nx">DOMJuice</span><span class="p">.</span><span class="nb">document</span> <span class="o">?</span> <span class="nb">window</span><span class="o">?</span><span class="p">.</span><span class="nb">document</span>
+      <span class="k">throw</span> <span class="k">new</span> <span class="nb">Error</span> <span class="s2">&quot;Cannot find a DOM Document to work with&quot;</span>
     <span class="nv">tmp = </span><span class="nb">document</span><span class="p">.</span><span class="nx">createElement</span> <span class="s1">&#39;div&#39;</span>
     <span class="nv">tmp.innerHTML = </span><span class="nx">template</span>
     <span class="nx">unless</span> <span class="nx">tmp</span><span class="p">.</span><span class="nx">childNodes</span><span class="p">.</span><span class="nx">length</span> <span class="o">is</span> <span class="mi">1</span>
