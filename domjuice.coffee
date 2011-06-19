@@ -287,7 +287,7 @@ class Section
     @rootNode = parent?.rootNode or this
 
     # Deep clone the template nodes.
-    @el = @template.cloneNode true
+    @el = @template.cloneNode yes
 
     # Find elements that have been marked with a cid.
     ops = new Array @opsByCid.length

@@ -2,39 +2,147 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>DOMJuice tests</title>
+  <title>DOMJuice Test Suite</title>
 
+  <!-- Hide templates -->
+  <style>.template { display: none }</style>
+
+  <!-- jQuery -->
   <script src="http://code.jquery.com/jquery-latest.js"></script>
 
+  <!-- QUnit -->
+  <!-- Prevent auto-start to make it work in combination with Coffee. -->
   <link rel="stylesheet" href="http://code.jquery.com/qunit/git/qunit.css" type="text/css" media="screen">
   <script type="text/javascript" src="http://code.jquery.com/qunit/git/qunit.js"></script>
   <script>QUnit.config.autostart = false;</script>
 
+  <!-- Backbone.js -->
   <script src="http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.1.6/underscore-min.js"></script>
   <script src="http://cdnjs.cloudflare.com/ajax/libs/backbone.js/0.3.3/backbone-min.js"></script>
 
+  <!-- CoffeeScript -->
+  <script src="http://jashkenas.github.com/coffee-script/extras/coffee-script.js"></script>
+
+  <!-- DOMJuice itself -->
   <script src="domjuice.coffee" type="text/coffeescript"></script>
   <script src="domjuice-backbone.coffee" type="text/coffeescript"></script>
 
-  <script src="http://jashkenas.github.com/coffee-script/extras/coffee-script.js"></script>
+  <!-- Test helpers -->
+  <script type="text/coffeescript">
+
+    # Set these as globals for easy access.
+    window.Model = Backbone.Model
+    window.Collection = Backbone.Collection
+
+    # Helper to quickly build and run a template constructed from an existing element.
+    # Takes the element ID, the context, and returns a jQuery object for the resulting element.
+    window.build = (id, context) ->
+      element = $("##{id}")[0].cloneNode yes
+      $(element).removeClass 'template'
+      element.id = ''
+
+      template = DOMJuice element
+      instance = new template context
+      $ instance.el
+
+  </script>
 </head>
 <body>
 
 
-  <div id="basic-dom-template">
+  <!-- Tests follow -->
+
+  <div id="basic-template" class="template">
     <p></p>
   </div>
   <script type="text/coffeescript">
     test 'Basic template with DOM input', ->
-      template = DOMJuice $('#basic-dom-template')[0]
-      instance = new template
-      ok $('p', instance.el).length is 1, "instance content should match template content"
+      res = build 'basic-template'
+      ok res.find('p').length is 1, "result should match template content"
 
     test 'Basic template with string markup input', ->
       template = DOMJuice '<div><p></p></div>'
       instance = new template
-      ok $('p', instance.el).length is 1, "instance content should match template content"
+      ok $('p', instance.el).length is 1, "result should match template content"
   </script>
+
+  <div id="varattr-template" class="template">
+    <p class:="cssClass"></p>
+  </div>
+  <script type="text/coffeescript">
+    test 'Template with an attribute operation', 2, ->
+      res = build 'varattr-template', cssClass: 'foobar'
+      ok res.find('p').hasClass('foobar'), "paragraph tag should have class 'foobar'"
+
+      res = build 'varattr-template'
+      ok not res.find('p').hasClass('undefined'), "paragraph tag shouldn't have class 'undefined'"
+
+    test 'Template with a variable attribute', 3, ->
+      model = new Model cssClass: 'foobar'
+
+      res = build 'varattr-template', model
+      ok res.find('p').hasClass('foobar'), "paragraph tag should have class 'foobar'"
+
+      model.set cssClass: 'baz'
+      ok not res.find('p').hasClass('foobar'), "paragraph tag should no longer have class 'foobar'"
+      ok res.find('p').hasClass('baz'), "paragraph tag should have class 'baz'"
+  </script>
+
+  <div id="varcontent-template" class="template">
+    <p content:="text"></p>
+  </div>
+  <script type="text/coffeescript">
+    test 'Template with a content operation', 2, ->
+      res = build 'varcontent-template', text: 'foobar'
+      ok res.find('p').text() is 'foobar', "paragraph should have text foobar"
+
+      res = build 'varcontent-template'
+      ok res.find('p').text() is '', "paragraph should be empty"
+
+    test 'Template with variable content', 2, ->
+      model = new Model text: 'foobar'
+
+      res = build 'varcontent-template', model
+      ok res.find('p').text() is 'foobar', "paragraph should have content foobar"
+
+      model.set text: false
+      ok res.find('p').text() is '', "paragraph should be empty"
+  </script>
+
+  <div id="section-template" class="template">
+    <ul>
+      <li section:='items'></li>
+    </ul>
+  </div>
+  <script type="text/coffeescript">
+    test 'Template with a section operation', 4, ->
+      res = build 'section-template', items: [{}, {}, {}]
+      ok res.find('li').length is 3, 'list should have 3 items'
+
+      res = build 'section-template', items: {}
+      ok res.find('li').length is 1, 'list should have 1 item'
+
+      res = build 'section-template', items: true
+      ok res.find('li').length is 1, 'list should have 1 item'
+
+      res = build 'section-template', items: false
+      ok res.find('li').length is 0, 'list should be empty'
+
+    test 'Template with variable sized section', 4, ->
+      collection = new Collection [{}, {}, {}]
+
+      res = build 'section-template', items: collection
+      ok res.find('li').length is 3, 'list should have 3 items'
+
+      collection.add {}
+      ok res.find('li').length is 4, 'list should have 4 items'
+
+      collection.remove collection.models[1]
+      ok res.find('li').length is 3, 'list should have 3 items'
+
+      collection.refresh []
+      ok res.find('li').length is 0, 'list should be empty'
+    </script>
 
 
   <!-- QUnit boilerplate -->
