@@ -144,6 +144,35 @@
       ok res.find('li').length is 0, 'list should be empty'
   </script>
 
+  <div id="root-ref-template" class="template">
+    <p id="a1" content:="a"></p>
+    <p id="b1" content:="b"></p>
+    <div section:="level2">
+      <p id="a2" content:="a"></p>
+      <p id="b2" content:="b"></p>
+      <div section:="level3">
+        <p id="a3" content:="a"></p>
+        <p id="b3" content:="b"></p>
+      </div>
+    </div>
+  </div>
+  <script type="text/coffeescript">
+    test 'Context root variable reference', 6, ->
+      res = build 'root-ref-template',
+        a: 1, b: 2
+        level2:
+          a: 3
+          level3:
+            b: 4
+
+      ok res.find('#a1').text() is '1', 'a1 should contain 1'
+      ok res.find('#b1').text() is '2', 'b1 should contain 2'
+      ok res.find('#a2').text() is '3', 'a2 should contain 3'
+      ok res.find('#b2').text() is '2', 'b2 should contain 2'
+      ok res.find('#a3').text() is '1', 'a3 should contain 1'
+      ok res.find('#b3').text() is '4', 'b3 should contain 4'
+  </script>
+
 
   <!-- QUnit boilerplate -->
   <h1 id="qunit-header">DOMJuice Test Suite</h1>
