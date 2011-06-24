@@ -3,9 +3,7 @@
 #     http://stephank.github.com/domjuice
 
 
-{Adaptor} = DOMJuice
 {Model, Collection} = Backbone
-
 
 # FIXME: Monkey patch. Hoped I wouldn't have to do this.
 # We need to know the indices of collection operations, but there's no
@@ -24,100 +22,84 @@ Collection::_remove = (model, options={}) ->
   return model
 
 
-class BackboneAdaptor extends Adaptor
-  constructor: (@context) ->
-    super
-    @properties = []
-    @sections = []
-    @inners = []
+DOMJuice.registerAdaptor
+  check: (obj) ->
+    obj instanceof Model or obj instanceof Collection
 
-  finalize: ->
-    super
-
-    for {property, handler} in @properties
-      @context.unbind "change:#{property}", handler
-
-    for {property, handler, adaptor} in @sections
-      @context.unbind "change:#{property}", handler
-      adaptor?.finalize()
-
-    for {addHandler, removeHandler, refreshHandler} in @inners
-      @context.unbind "add", addHandler
-      @context.unbind "remove", removeHandler
-      @context.unbind "refresh", refreshHandler
-
-    return
-
-  listenProperty: (property, handler) ->
-    if @context instanceof Collection
+  getProperty: (obj, prop) ->
+    if obj instanceof Collection
       throw new Error "No properties on a collection."
 
-    state = {property}
+    obj.get prop
 
-    state.handler = (model, val, options) -> handler val
-    @context.bind "change:#{property}", state.handler
+  bindProperty: (obj, prop, cb) ->
+    if obj instanceof Collection
+      throw new Error "No properties on a collection."
 
-    @properties.push state
+    event = "change:#{prop}"
+    obj.bind event, handler = (_, val) ->
+      cb val
 
-  listenSection: (property, manager) ->
-    state = {property, adaptor: null}
+    unbind: ->
+      obj.unbind event, handler
 
-    state.handler = (model, val, options) =>
-      manager.clear()
-      if state.adaptor
-        state.adaptor.finalize()
-        state.adaptor = null
+  getSection: (obj, prop, iter) ->
+    if obj instanceof Collection
+      throw new Error "No properties on a collection."
 
-      if typeof val is 'object'
-        state.adaptor = Adaptor.get @owner, val
-        state.adaptor.listenSectionInner manager
-        adaptor.initialFill()
-      else if val
-        manager.insert val, 0
-    @context.bind "change:#{property}", state.handler
+    val = obj.get prop
+    if typeof val is 'object' and a = getAdaptor val
+      a.getSectionInner val, iter
+    else if val
+      iter val, 0
 
-    @sections.push state
+  bindSection: (prop, man) ->
+    if obj instanceof Collection
+      throw new Error "No properties on a collection."
 
-  listenSectionInner: (manager) ->
-    unless @context instanceof Collection
-      manager.insert this, 0
+    event = "change:#{prop}"
+    innerListener = null
+    obj.bind event, handler = (_, val) ->
+      innerListener?.unbind()
+
+      man.refresh (iter) ->
+        if typeof val is 'object' and a = getAdaptor val
+          a.getSectionInner val, iter
+          innerListener = a.bindSectionInner val, man
+        else if val
+          iter val
+          innerListener = null
+
+    unbind: ->
+      obj.unbind event, handler
+      innerListener?.unbind()
+
+  getSectionInner: (obj, iter) ->
+    if obj instanceof Collection
+      obj.each (item, i) ->
+        iter item, i
+    else
+      iter obj, 0
+
+  bindSectionInner: (obj, man) ->
+    unless obj instanceof Collection
+      man.add this, 0
       return
 
-    state = {}
-
-    state.addHandler = (model, collection, options) ->
-      # FIXME: Seriouslly, Backbone's `_add` already knows the index.
+    obj.bind "add", addHandler = (model) ->
+      # FIXME: Seriously, Backbone's `_add` already knows the index.
       # We shouldn't have to figure it out again here.
-      index = collection.indexOf model
-      manager.insert model, index
-    @context.bind "add", state.addHandler
+      idx = obj.indexOf model
+      man.add model, idx
 
-    state.removeHandler = (model, collection, options, index) ->
-      manager.remove index
-    @context.bind "remove", state.removeHandler
+    obj.bind "remove", removeHandler = (_, _, _, idx) ->
+      man.remove idx
 
-    state.refreshHandler = (collection, options) ->
-      manager.clear()
-      collection.each (model, i) ->
-        manager.insert model, i
-    @context.bind "refresh", state.refreshHandler
+    obj.bind "refresh", refreshHandler = ->
+      man.refresh (iter) ->
+        obj.each iter
 
-    @inners.push state
-
-  willUpdate: true
-
-  initialFill: ->
-    for {property, handler} in @properties
-      handler @context, @context.get(property), {}
-
-    for {property, handler} in @sections
-      handler @context, @context.get(property), {}
-
-    for {addHandler} in @inners
-      @context.each (model) =>
-        addHandler model, @context, {}
-
-    return
-
-Adaptor.register BackboneAdaptor, (obj) ->
-  obj instanceof Model or obj instanceof Collection
+    unbind: ->
+      obj.unbind "add", addHandler
+      obj.unbind "remove", removeHandler
+      obj.unbind "refresh", refreshHandler

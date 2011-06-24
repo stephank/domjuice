@@ -52,7 +52,6 @@ eachNode = (rootNode, callback) ->
     when 'remove' then throw new Error "Cannot remove the top node"
 
   walker rootNode
-  return
 
 
 # Template Operations
@@ -64,25 +63,81 @@ eachNode = (rootNode, callback) ->
 # carry data on that specific template operation within the template.
 #
 # When instantiating a template, these subclasses are then instantiated with
-# the actual element to update, and the section that owns the instance.
+# the actual element to update, and the section it belongs to.
+
+#### Variable Property Watcher Common
+
+# Base class used by `VarAttr` and `VarContent`, because they are both similar
+# in watching a property with a variable value.
+class BaseVarProp
+  # Whether we will update after `initialFill`.
+  willUpdate: null
+  # Currently displaying the root or inner context value.
+  innerValueSet: null
+
+  # Bind to the root and inner context properties on instantiation.
+  constructor: (@el, @s) ->
+    @listeners =
+      context: bindProperty @s.context, @propertyName, @contextSet
+      root: bindProperty @s.root, @propertyName, @rootSet
+
+  # Unbind both listeners on finalize.
+  finalize: ->
+    @listeners.context?.unbind()
+    @listeners.root?.unbind()
+
+  # Set the initial value of the attribute using `getProperty`.
+  #
+  # Without any listeners we can unset `willUpdate`. We can also unset it if
+  # the inner context is truthy right now, and there's no inner context
+  # listener to change it into something else.
+  initialFill: ->
+    val = getProperty @s.context, @propertyName
+    if @innerValueSet = !!val
+      @set val
+      unless @willUpdate = @listeners.context?
+        @listeners.root?.unbind()
+        @listeners.root = null
+    else
+      @set getProperty @s.root, @propertyName
+      @willUpdate = @listeners.context? or @listeners.root?
+
+  # Update triggered by the inner context. If there's a value, just set it
+  # without fussing. If the value is falsy, we need to show root's.
+  contextSet: (value) =>
+    if value
+      @set value
+      @innerValueSet = yes
+    else if @innerValueSet
+      @set getProperty @s.root, @propertyName
+      @innerValueSet = no
+
+  # Update triggered by the root context. Only set the value if we're not
+  # currently displaying an inner contexts value.
+  rootSet: (value) =>
+    @set value unless @innerValueSet
+
+  # Set helper which does the actual update based on a value.
+  # Subclasses override this to set an attribute or an element's content.
+  set: (value) ->
+
+#### Variable Attribute Operation
 
 # Manages an element attribute with a variable value.
-class VarAttr
-  constructor: (@element, @section) ->
-    @section.context.listenProperty @propertyName, @update
+class VarAttr extends BaseVarProp
+  set: (value) ->
+    @el.setAttribute @attrName, String value or ''
 
-  update: (value) =>
-    @element.setAttribute @attrName, String value or ''
+#### Variable Content Operation
 
 # Manages an element with variable content.
-class VarContent
-  constructor: (@element, @section) ->
-    @section.context.listenProperty @propertyName, @update
+class VarContent extends BaseVarProp
+  set: (value) =>
+    textNode = @el.ownerDocument.createTextNode String value or ''
+    @el.innerHTML = ''
+    @el.appendChild textNode
 
-  update: (value) =>
-    @element.innerHTML = ''
-    textNode = @element.ownerDocument.createTextNode String value or ''
-    @element.appendChild textNode
+#### Section Operation
 
 # The glue between parent and child sections. All sections, except the
 # template toplevel, are managed by one of these.
@@ -90,41 +145,117 @@ class VarContent
 # Methods of this class are used by context adaptors to update the instances
 # of the section.
 class SectionManager
-  constructor: (@element, @section) ->
-    @section.context.listenSection @propertyName, this
+  # Currently displaying the root or inner context value.
+  innerValueSet: null
+
+  # Bind to the root and inner context properties on instantiation.
+  constructor: (@el, @s) ->
     @sections = []
 
-  # Create a new section for the given item at the given index . If the item
-  # is an object, the section will descend into it as a subcontext.
-  insert: (item, index) ->
-    section = new @sectionClass item, @section
-    refNode = @element.childNodes[@containerIndex + index] or null
-    @element.insertBefore section.el, refNode
-    @_adjustNeighbours +1
-    @sections.splice index, 0, section
-    return
+    @listeners = {}
+    @listeners.context = bindSection @s.context, @propertyName,
+        add: @contextAdd, remove: @contextRemove, refresh: @contextRefresh
+    @listeners.root = bindSection @s.root, @propertyName,
+        add: @rootAdd, remove: @rootRemove, refresh: @rootRefresh
 
-  # Remove the section at the given index.
+  # Unbind both listeners on finalize.
+  finalize: ->
+    @listeners.context?.unbind()
+    @listeners.root?.unbind()
+
+  # Create the initial sections using `getSection`.
+  #
+  # As with `BaseVarProp#initialFill`, if there are sections at this point,
+  # and there is no inner context listener to change that, we can ditch the
+  # root context listener.
+  initialFill: ->
+    getSection @s.context, @propertyName, @add
+    if @innerValueSet = @sections.length isnt 0
+      unless @listeners.context?
+        @listeners.root?.unbind()
+        @listeners.root = null
+    else
+      getSection @s.root, @propertyName, @add
+
+  # Update triggered by the inner context. Override the root context if it
+  # was current, otherwise just add as normal.
+  contextAdd: (item, index) =>
+    if @innerValueSet
+      @add item, index
+    else
+      @innerValueSet = yes
+      @refresh (iter) ->
+        iter item
+
+  # Update triggered by the root context. Add only if it is current.
+  rootAdd: (item, index) =>
+    @add item, index unless @innerValueSet
+
+  # Helper to create a section for the given item at the given index. If the
+  # item is an object, the section will descend into it as a subcontext.
+  add: (item, index) =>
+    section = new @sectionClass item, @s
+    refNode = @el.childNodes[@containerIndex + index] or null
+    @el.insertBefore section.el, refNode
+    @adjustNeighbours +1
+    @sections.splice index, 0, section
+
+  # Update triggered by the inner context. Make the root context current if
+  # this was the last item.
+  contextRemove: (item, index) =>
+    if @sections.length is 1
+      @innerValueSet = no
+      @refresh (iter) =>
+        getSection @s.root, @propertyName, iter
+    else
+      @remove item, index
+
+  # Update triggered by the root context. Remove only if it is current.
+  rootRemove: (item, index) =>
+    @remove item, index unless @innerValueSet
+
+  # Helper to remove the section at the given index.
   remove: (index) ->
     [section] = @sections.splice index, 1
     section.finalize()
-    @element.removeChild @element.childNodes[@containerIndex + index]
-    @_adjustNeighbours -1
-    return
+    @el.removeChild @el.childNodes[@containerIndex + index]
+    @adjustNeighbours -1
 
-  # Clear all instances of the section. Useful when the watched property
-  # itself changes, for example from a collection to something else.
-  clear: ->
+  # Update triggered by the inner context. Make the root context current if
+  # there are no items after the refresh.
+  #
+  # FIXME: Perhaps a more efficient way of doing this?
+  contextRefresh: (block) =>
+    @refresh block
+    unless @innerValueSet = @sections.length isnt 0
+      @refresh (iter) =>
+        getSection @s.root, @propertyName, iter
+
+  # Update triggered by the root context. Refresh only if it is current.
+  rootRefresh: (block) =>
+    @refresh block unless @innerValueSet
+
+  # Helper to replace all sections in one shot. The parameter is a function
+  # that takes an iterator function. The iterator function is then called
+  # repeatedly by the caller for each new item.
+  refresh: (block) ->
     for section in @sections
       section.finalize()
-      @element.removeChild @element.childNodes[@containerIndex]
-    @_adjustNeighbours -@sections.length
+      @el.removeChild @el.childNodes[@containerIndex]
+    adjustment = -@sections.length
     @sections = []
-    return
+
+    refNode = @el.childNodes[@containerIndex] or null
+    block (item) ->
+      @sections.push section = new @sectionClass item, @s
+      @el.insertBefore section.el, refNode
+    adjustment += @sections.length
+
+    @adjustNeighbours adjustment
 
   # Helper used to adjust the `containerIndex` of neighbours.
-  _adjustNeighbours: (adjustment) ->
-    for op in @section.opsByCid[@cid] when op.containerOrder > @containerOrder
+  adjustNeighbours: (adjustment) ->
+    for op in @s.opsByCid[@cid] when op.containerOrder > @containerOrder
       op.containerIndex += adjustment
     return
 
@@ -133,132 +264,86 @@ class SectionManager
 # ----------------
 
 # Adaptors are used to access and listen for changes to properties on
-# different types of context objects and collections.
-
-# Base class for a context adaptor.
+# different types of objects and collections.
 #
-# Except where specified, subclasses need not call super in method overrides.
-class Adaptor
-  # When instantiated, adaptors receive the section that owns the instance,
-  # and the context object or collection. Subclasses must call super.
-  constructor: (@owner, @context) ->
-    @owner.adaptors.push this
+# Listening for changes works a bit differently form the `bind` methods in,
+# say, Backbone.js or jQuery. The `bind` methods of adaptors should return
+# a handle object or nothing. Handle objects are expected to have a `unbind`
+# method taking no parameters.
 
-  # Adaptors typically install event listeners on their context, which implies
-  # a back-reference. The finalize method should clear these listeners, so
-  # that the section may be garbage collected. Subclasses must call super.
-  finalize: ->
-    for adaptor, index in @owner.adaptors
-      if adaptor is this
-        @owner.adaptors.splice index, 1
-        return
-    return
+# The following is the default adaptor for regular JavaScript `Object`s and
+# `Array`s. It more or less doubles as the interface description.
+DefaultAdaptor =
+  # Check if this adaptor can handle the given object.
+  check: (object) -> yes
 
-  # Listen for changes to a property of the context. The value of the property
-  # should be provided as-is. Truthy values will be stringified, while falsy
-  # values will display as nothing.
-  listenProperty: (property, handler) ->
+  # Access or listen for changes to a property of an object. The value of the
+  # property should be provided as-is. Truthy values will be stringified,
+  # while falsy values will display as nothing.
+  getProperty: (object, property) ->
+    object[property]
 
-  # Called by a `SectionManager` to listen for changes to a property on the
-  # context. Regardless of the property value, the adaptor is responsible for
-  # providing a collection-like view to the `SectionManager`.
+  bindProperty: (object, property, handler) ->
+
+  # Called by a `SectionManager` to access or listen for changes to a property
+  # on an object. Regardless of the property value, the adaptor is responsible
+  # for providing a collection-like view to the `SectionManager`.
   #
-  # The `manager` parameter is the manager instance; use the `insert`,
-  # `remove`, and `clear` methods to create and destroy sections as the
-  # context updates.
-  #
-  # Typically, implementations listen only for changes on the actual property,
-  # and if the property value is/becomes an object, create a new adaptor to
-  # deal with it using `Adaptor.get` and `listenSectionInner`.
-  #
-  # For collections, the handlers are used to create sections for each item
-  # in the collection. For all other types, the handlers should be used to
-  # create a single section for truthy values, and none otherwise.
-  listenSection: (property, manager) ->
+  # For actual collections, these methods provide access to its items. For
+  # all other types, a view of a single item should be provided for truthy
+  # values, or an empty view otherwise.
+  getSection: (object, property, iterator) ->
+    val = object[property]
+    if typeof val is 'object' and a = getAdaptor val
+      a.getSectionInner val, iterator
+    else if val
+      iterator val, 0
 
-  # Called when an adaptor is instantiated in service of the above
-  # `listenSection` method on another adaptor.
-  #
-  # The context of the inner adaptor is the value of the property the section
-  # is accessing. Following the above logic, this will always be an object.
-  # If that object is a collection, this method should create a section for
-  # each item in it. Otherwise, a single section should be created for just
-  # the context.
-  listenSectionInner: (manager) ->
+  bindSection: (object, property, manager) ->
+    val = object[property]
+    if typeof val is 'object' and a = getAdaptor val
+      a.bindSectionInner val, manager
 
-  # Whether the adaptor is capable of noticing updates at all.
-  #
-  # If this is false, the adaptor and associated operations can be discarded
-  # after the template instance has done its initial fill.
-  willUpdate: false
+  # The above `*Section` methods may rely on another type of adaptor to handle
+  # the property's value if it is an object. These methods are provided as
+  # interface between the two adaptors.
+  getSectionInner: (object, iterator) ->
+    if object.length?
+      iterator item, i for item, i in object
+    else if object
+      iterator object, 0
 
-  # Trigger all installed listeners for the current situation, to perform the
-  # initial fill of the template instance.
-  initialFill: ->
+  bindSectionInner: (object, manager) ->
 
-#### Adaptors Registry
+#### Adaptor Registry
 
-# Each entry has a `klass` and `check`. If the check succeeds for a context
-# object, the adaptor class is instantiated and used.
-adaptorTypes = []
+# List of registered adaptors.
+adaptors = [DefaultAdaptor]
 
-# Adapt the given context object, using the registry to find the right
-# adaptor class, or falling back to the `DefaultAdaptor`.
-Adaptor.get = (owner, context) ->
-  for {klass, check} in adaptorTypes
-    return new klass owner, context if check context
-  return new DefaultAdaptor owner, context
+# Retrieve the adaptor that can handle the given context object.
+getAdaptor = (object) ->
+  for adaptor in adaptors
+    return adaptor if adaptor.check object
 
 # Register a new type of adaptor.
-Adaptor.register = (klass, check) ->
-  adaptorTypes.push {klass, check}
+registerAdaptor = (adaptor) ->
+  adaptors.unshift adaptor
 
-#### Default Adaptor
+#### Adaptor Helpers
 
-# Adaptor for regular JavaScript `Object`s and `Array`s.
-class DefaultAdaptor extends Adaptor
-  # Simply gather all listeners here, so we can trigger them in `initialFill`.
-  # We can't really install any listeners on the context.
-  constructor: (@context) ->
-    super
-    @properties = []
-    @sections = []
-    @inners = []
+# These just wrap the `getAdaptor` dance.
 
-  listenProperty: (property, handler) ->
-    @properties.push {property, handler}
+getProperty = (object, property) ->
+  getAdaptor(object).getProperty object, property
 
-  listenSection: (property, manager) ->
-    @sections.push {property, manager}
+bindProperty = (object, property, handler) ->
+  getAdaptor(object).bindProperty object, property, handler
 
-  listenSectionInner: (manager) ->
-    @inners.push manager
+getSection = (object, property, iterator) ->
+  getAdaptor(object).getSection object, property, iterator
 
-  # We have no way of noticing changes.
-  willUpdate: false
-
-  # The initial fill is all the `DefaultAdaptor` really does. We trigger
-  # listeners once here, and create inner adaptors for sections.
-  initialFill: ->
-    for {property, handler} in @properties
-      handler @context[property]
-
-    for {property, manager} in @sections
-      value = @context[property]
-      if typeof value is 'object'
-        adaptor = Adaptor.get @owner, value
-        adaptor.listenSectionInner manager
-        adaptor.initialFill()
-      else if value
-        manager.insert value, 0
-
-    for manager in @inners
-      if @context.length > 0
-        manager.insert item, i for item, i in @context
-      else
-        manager.insert @context, 0
-
-    return
+bindSection = (object, property, manager) ->
+  getAdaptor(object).bindSection object, property, manager
 
 
 # Section
@@ -271,20 +356,15 @@ class DefaultAdaptor extends Adaptor
 class Section
   # Construct a section by giving it a context object. (The `parent` parameter
   # is for internal use only.)
-  constructor: (context={}, parent) ->
+  constructor: (@context={}, parent) ->
     # Set up the context for this section. If this is the toplevel, we expect
     # the user to give us an object. If it's an internal subsection, a
     # non-object indicates a simple conditional section, which means we just
     # continue in our parents context.
-    @adaptors = []
-    if context instanceof Adaptor
-      @context = context
-    else if typeof context is 'object'
-      @context = Adaptor.get this, context
-    else
+    unless typeof @context is 'object'
       throw new Error "Template context should be an object" unless parent
       @context = parent.context
-    @rootNode = parent?.rootNode or this
+    @root = parent?.root or @context
 
     # Deep clone the template nodes.
     @el = @template.cloneNode yes
@@ -302,24 +382,27 @@ class Section
       ops[cid] = for klass in klasses
         new klass node, this
 
-    # SectionManagers need access to their neighbours, so expose `ops`.
-    # Shadow `opsByCid`, because there's no need to access super's.
-    @opsByCid = ops
-
-    # Perform the initial fill of the entire template.
-    # We also eliminate adaptors that won't update afterwards.
-    for adaptor in @adaptors.slice()
-      adaptor.initialFill()
-      adaptor.finalize() unless adaptor.willUpdate
+    # Perform the initial fill for this section. Remove operations which will
+    # never update again, so they will be garbage collected.
+    #
+    # `SectionManager`s need access to their neighbours, so expose the
+    # operations. Shadow `opsByCid`, because there's no need to access supers.
+    #
+    # FIXME: Do we want to try clean up `SectionManager`s here too?
+    @opsByCid = for elementOps in ops then for op in elementOps
+      op.initialFill()
+      op if op.willUpdate or op instanceof SectionManager
 
   # DOMJuice templates require cleaning up, to clear back-references that are
   # kept by event listeners installed on context objects. Properly calling
-  # `finalize()` will ensure the template instance can be garbage collected.
+  # `finalize` will ensure the template instance can be garbage collected.
   #
   # Note that this does **not** remove the elements from the DOM. It is
-  # expected they will be replaced any way, or remove them manually.
+  # expected they will be replaced any way, otherwise remove them manually.
   finalize: ->
-    @adaptors[0].finalize() until @adaptors.length is 0
+    for cid, elementOps of @opsByCid
+      for op in elementOps
+        op.finalize()
     return
 
 # The workhorse that builds Section subclasses for templates or subsections.
@@ -341,7 +424,6 @@ buildSectionClass = (template) ->
       element.setAttribute cidAttr, cid
       opsByCid.push [op]
     op::cid = cid
-    return
 
   # Walk the tree, extract sections, collect operations.
   eachNode template, (node, index, originalIndex) ->
@@ -437,5 +519,6 @@ if module?.exports?
 else
   @DOMJuice = DOMJuice
 
-# Users may want to extend `Adaptor` and access the registry.
-DOMJuice.Adaptor = Adaptor
+# Export the adaptor API.
+DOMJuice.getAdaptor = getAdaptor
+DOMJuice.registerAdaptor = registerAdaptor
