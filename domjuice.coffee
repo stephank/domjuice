@@ -65,7 +65,7 @@ eachNode = (rootNode, callback) ->
 # When instantiating a template, these subclasses are then instantiated with
 # the actual element to update, and the section it belongs to.
 
-#### Variable Property Watcher Common
+#### Property Watcher Common
 
 # Base class used by `VarAttr` and `VarContent`, because they are both similar
 # in watching a property with a variable value.
@@ -121,14 +121,14 @@ class BaseVarProp
   # Subclasses override this to set an attribute or an element's content.
   set: (value) ->
 
-#### Variable Attribute Operation
+#### Variable Attribute
 
 # Manages an element attribute with a variable value.
 class VarAttr extends BaseVarProp
   set: (value) ->
     @el.setAttribute @attrName, String value or ''
 
-#### Variable Content Operation
+#### Variable Content
 
 # Manages an element with variable content.
 class VarContent extends BaseVarProp
@@ -137,7 +137,25 @@ class VarContent extends BaseVarProp
     @el.innerHTML = ''
     @el.appendChild textNode
 
-#### Section Operation
+#### Partial Content
+
+# Invokes a partial and sets the element content to it. Partials need not be
+# DOMJuice templates, they can just as well be anything else that exposes an
+# attribute `el` with the DOM `Element`. Other than that, DOMJuice only looks
+# for the optional `finalize` method.
+class PartialContent
+  constructor: (@el, @s) ->
+    klass = DOMJuice.partials[@partialName]
+    @partial = new klass @s.context
+
+  finalize: ->
+    @partial.finalize?()
+
+  initialFill: ->
+    @el.innerHTML = ''
+    @el.appendChild @partial.el
+
+#### Section
 
 # The glue between parent and child sections. All sections, except the
 # template toplevel, are managed by one of these.
@@ -388,10 +406,10 @@ class Section
     # `SectionManager`s need access to their neighbours, so expose the
     # operations. Shadow `opsByCid`, because there's no need to access supers.
     #
-    # FIXME: Do we want to try clean up `SectionManager`s here too?
+    # FIXME: Do we want to try clean up non-`BaseVarProp`s here too?
     @opsByCid = for elementOps in ops then for op in elementOps
       op.initialFill()
-      op if op.willUpdate or op instanceof SectionManager
+      op unless op instanceof BaseVarProp and not op.willUpdate
 
   # DOMJuice templates require cleaning up, to clear back-references that are
   # kept by event listeners installed on context objects. Properly calling
@@ -453,8 +471,12 @@ buildSectionClass = (template) ->
       {nodeValue} = attribute
       node.removeAttributeNode attribute
 
-      addOpToElement node, class extends VarContent
-        propertyName: nodeValue
+      if nodeValue.charAt(0) is '@'
+        addOpToElement node, class extends PartialContent
+          partialName: nodeValue.slice(1)
+      else
+        addOpToElement node, class extends VarContent
+          propertyName: nodeValue
 
       action = 'skip'
  
@@ -522,3 +544,6 @@ else
 # Export the adaptor API.
 DOMJuice.getAdaptor = getAdaptor
 DOMJuice.registerAdaptor = registerAdaptor
+
+# The user may override this with a map of partials by name.
+DOMJuice.partials = {}

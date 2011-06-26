@@ -34,15 +34,18 @@
     window.Model = Backbone.Model
     window.Collection = Backbone.Collection
 
-    # Helper to quickly build and run a template constructed from an existing element.
-    # Takes the element ID, the context, and returns a jQuery object for the resulting element.
-    window.build = (id, context) ->
+    # Helper to quickly build a template from an existing element by ID.
+    window.template = (id) ->
       element = $("##{id}")[0].cloneNode yes
       $(element).removeClass 'template'
       element.id = ''
+      DOMJuice element
 
-      template = DOMJuice element
-      instance = new template context
+    # Helper to quickly run a template from an existing element and a context.
+    # Takes the element ID, the context, and returns a jQuery object for the resulting element.
+    window.build = (id, context) ->
+      klass = template id
+      instance = new klass context
       $ instance.el
 
   </script>
@@ -171,6 +174,19 @@
       ok res.find('#b2').text() is '2', 'b2 should contain 2'
       ok res.find('#a3').text() is '1', 'a3 should contain 1'
       ok res.find('#b3').text() is '4', 'b3 should contain 4'
+  </script>
+
+  <div id="partial-parent-template" class="template">
+    <div content:="@child"></div>
+  </div>
+  <div id="partial-child-template" class="template">
+    <p content:="text"></p>
+  </div>
+  <script type="text/coffeescript">
+    test 'Basic partial', 1, ->
+      DOMJuice.partials['child'] = template 'partial-child-template'
+      res = build 'partial-parent-template', text: 'foobar'
+      ok res.find('p').text() is 'foobar', "paragraph should have content 'foobar'"
   </script>
 
 
