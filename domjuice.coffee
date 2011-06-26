@@ -109,7 +109,7 @@ DefaultAdaptor =
 
   bindSectionInner: (object, manager) ->
 
-#### Adaptor Registry
+#### Registry
 
 # List of registered adaptors.
 adaptors = [DefaultAdaptor]
@@ -123,7 +123,7 @@ getAdaptor = (object) ->
 registerAdaptor = (adaptor) ->
   adaptors.unshift adaptor
 
-#### Adaptor Helpers
+#### Helpers
 
 # These just wrap the `getAdaptor` dance.
 
@@ -138,6 +138,38 @@ getSection = (object, property, iterator) ->
 
 bindSection = (object, property, manager) ->
   getAdaptor(object).bindSection object, property, manager
+
+
+# Animators
+# ---------
+
+# Animators are classes that perform animations when DOMJuice changes
+# contents. What animation to perform is either determined by the global
+# `DOMJuice.defaultAnimation` or per operation using the `fx:=` attribute.
+#
+# The following is an animator that does nothing. It is the default and more
+# or less doubles as the interface description. There's no need to inherit
+# from this class.
+class NoAnimation
+  # Transition in the given elements, which are already in the DOM.
+  # `options.content` is set if this is a content operation.
+  # `options.refresh` is set if this is a complete section refresh.
+  add: (elements, options) ->
+
+  # Transition out the given elements. The callback should be called when the
+  # animation finishes, after which the elements will be removed from the DOM.
+  remove: (elements, options, callback) ->
+    callback()
+
+#### Registry
+
+# Map of registered animators by name.
+animations =
+  'none': NoAnimation
+
+# Register a new type of animation.
+registerAnimation = (name, animator) ->
+  animations[name] = animator
 
 
 # Template Operations
@@ -180,12 +212,12 @@ class BaseVarProp
   initialFill: ->
     val = getProperty @s.context, @propertyName
     if @innerValueSet = !!val
-      @set val
+      @initialSet val
       unless @willUpdate = @listeners.context?
         @listeners.root?.unbind()
         @listeners.root = null
     else
-      @set getProperty @s.root, @propertyName
+      @initialSet getProperty @s.root, @propertyName
       @willUpdate = @listeners.context? or @listeners.root?
 
   # Update triggered by the inner context. If there's a value, just set it
@@ -203,14 +235,18 @@ class BaseVarProp
   rootSet: (value) =>
     @set value unless @innerValueSet
 
-  # Set helper which does the actual update based on a value.
-  # Subclasses override this to set an attribute or an element's content.
+  # Set helpers which do the actual fill and update based on a value.
+  # Subclasses override these to set an attribute or an element's content.
+  initialSet: (value) ->
   set: (value) ->
 
 #### Variable Attribute
 
 # Manages an element attribute with a variable value.
 class VarAttr extends BaseVarProp
+  initialSet: (value) ->
+    @set value
+
   set: (value) ->
     @el.setAttribute @attrName, String value or ''
 
@@ -218,10 +254,32 @@ class VarAttr extends BaseVarProp
 
 # Manages an element with variable content.
 class VarContent extends BaseVarProp
-  set: (value) =>
+  constructor: ->
+    super
+    @anim = new @animatorKlass
+
+  # The initial set is not animated, and thus a lot simpler.
+  initialSet: (value) ->
     textNode = @el.ownerDocument.createTextNode String value or ''
     @el.innerHTML = ''
     @el.appendChild textNode
+
+  # Transition out the old elements, and transition in the new element. When
+  # rapidly refreshing content, we're careful not to double remove elements.
+  # However, animators should be prepared to deal with a `remove` interrupting
+  # an already in progress `add`.
+  set: (value) =>
+    old = for child in @el.childNodes when not child.ghost
+      child.ghost = true
+      child
+    @anim.remove old, content: true, =>
+      for child in old
+        @el.removeChild child
+      return
+
+    textNode = @el.ownerDocument.createTextNode String value or ''
+    @el.appendChild textNode
+    @anim.add textNode, content: true
 
 #### Partial Content
 
@@ -248,6 +306,8 @@ class PartialContent
 #
 # Methods of this class are used by context adaptors to update the instances
 # of the section.
+#
+# FIXME: Implement animation.
 class SectionManager
   # Currently displaying the root or inner context value.
   innerValueSet: null
@@ -255,6 +315,8 @@ class SectionManager
   # Bind to the root and inner context properties on instantiation.
   constructor: (@el, @s) ->
     @sections = []
+
+    @anim = new @animatorKlass
 
     @listeners = {}
     @listeners.context = bindSection @s.context, @propertyName,
@@ -447,6 +509,16 @@ buildSectionClass = (template) ->
   eachNode template, (node, index, originalIndex) ->
     return 'skip' unless node.nodeType is ELEMENT_NODE
 
+    # Determine the animation for the next operation.
+    animation = DOMJuice.defaultAnimation
+    if attribute = node.getAttributeNode 'fx:'
+      animation = attribute.nodeValue
+      node.removeAttributeNode attribute
+    if typeof animation is 'string'
+      unless tmp = animations[animation]
+        throw new Error "Cannot find animator named '#{animation}'"
+      animation = tmp
+
     # Check for a `section:=` operation first. Other operations on the
     # sectioned element execute within the section context, and are
     # processed by a recursive `buildSectionClass`.
@@ -461,6 +533,7 @@ buildSectionClass = (template) ->
         sectionClass: buildSectionClass(node)
         containerIndex: index
         containerOrder: originalIndex
+        animatorKlass: animation
 
       return 'remove'
 
@@ -477,6 +550,7 @@ buildSectionClass = (template) ->
       else
         addOpToElement node, class extends VarContent
           propertyName: nodeValue
+          animatorKlass: animation
 
       action = 'skip'
  
@@ -544,6 +618,10 @@ else
 # Export the adaptor API.
 DOMJuice.getAdaptor = getAdaptor
 DOMJuice.registerAdaptor = registerAdaptor
+
+# Export the animation API.
+DOMJuice.registerAnimation = registerAnimation
+DOMJuice.defaultAnimation = 'none'
 
 # The user may override this with a map of partials by name.
 DOMJuice.partials = {}
