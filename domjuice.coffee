@@ -54,6 +54,92 @@ eachNode = (rootNode, callback) ->
   walker rootNode
 
 
+# Context Adaptors
+# ----------------
+
+# Adaptors are used to access and listen for changes to properties on
+# different types of objects and collections.
+#
+# Listening for changes works a bit differently form the `bind` methods in,
+# say, Backbone.js or jQuery. The `bind` methods of adaptors should return
+# a handle object or nothing. Handle objects are expected to have a `unbind`
+# method taking no parameters.
+
+# The following is the default adaptor for regular JavaScript `Object`s and
+# `Array`s. It more or less doubles as the interface description.
+DefaultAdaptor =
+  # Check if this adaptor can handle the given object.
+  check: (object) -> yes
+
+  # Access or listen for changes to a property of an object. The value of the
+  # property should be provided as-is. Truthy values will be stringified,
+  # while falsy values will display as nothing.
+  getProperty: (object, property) ->
+    object[property]
+
+  bindProperty: (object, property, handler) ->
+
+  # Called by a `SectionManager` to access or listen for changes to a property
+  # on an object. Regardless of the property value, the adaptor is responsible
+  # for providing a collection-like view to the `SectionManager`.
+  #
+  # For actual collections, these methods provide access to its items. For
+  # all other types, a view of a single item should be provided for truthy
+  # values, or an empty view otherwise.
+  getSection: (object, property, iterator) ->
+    val = object[property]
+    if typeof val is 'object' and a = getAdaptor val
+      a.getSectionInner val, iterator
+    else if val
+      iterator val, 0
+
+  bindSection: (object, property, manager) ->
+    val = object[property]
+    if typeof val is 'object' and a = getAdaptor val
+      a.bindSectionInner val, manager
+
+  # The above `*Section` methods may rely on another type of adaptor to handle
+  # the property's value if it is an object. These methods are provided as
+  # interface between the two adaptors.
+  getSectionInner: (object, iterator) ->
+    if object.length?
+      iterator item, i for item, i in object
+    else if object
+      iterator object, 0
+
+  bindSectionInner: (object, manager) ->
+
+#### Adaptor Registry
+
+# List of registered adaptors.
+adaptors = [DefaultAdaptor]
+
+# Retrieve the adaptor that can handle the given context object.
+getAdaptor = (object) ->
+  for adaptor in adaptors
+    return adaptor if adaptor.check object
+
+# Register a new type of adaptor.
+registerAdaptor = (adaptor) ->
+  adaptors.unshift adaptor
+
+#### Adaptor Helpers
+
+# These just wrap the `getAdaptor` dance.
+
+getProperty = (object, property) ->
+  getAdaptor(object).getProperty object, property
+
+bindProperty = (object, property, handler) ->
+  getAdaptor(object).bindProperty object, property, handler
+
+getSection = (object, property, iterator) ->
+  getAdaptor(object).getSection object, property, iterator
+
+bindSection = (object, property, manager) ->
+  getAdaptor(object).bindSection object, property, manager
+
+
 # Template Operations
 # -------------------
 
@@ -276,92 +362,6 @@ class SectionManager
     for op in @s.opsByCid[@cid] when op.containerOrder > @containerOrder
       op.containerIndex += adjustment
     return
-
-
-# Context Adaptors
-# ----------------
-
-# Adaptors are used to access and listen for changes to properties on
-# different types of objects and collections.
-#
-# Listening for changes works a bit differently form the `bind` methods in,
-# say, Backbone.js or jQuery. The `bind` methods of adaptors should return
-# a handle object or nothing. Handle objects are expected to have a `unbind`
-# method taking no parameters.
-
-# The following is the default adaptor for regular JavaScript `Object`s and
-# `Array`s. It more or less doubles as the interface description.
-DefaultAdaptor =
-  # Check if this adaptor can handle the given object.
-  check: (object) -> yes
-
-  # Access or listen for changes to a property of an object. The value of the
-  # property should be provided as-is. Truthy values will be stringified,
-  # while falsy values will display as nothing.
-  getProperty: (object, property) ->
-    object[property]
-
-  bindProperty: (object, property, handler) ->
-
-  # Called by a `SectionManager` to access or listen for changes to a property
-  # on an object. Regardless of the property value, the adaptor is responsible
-  # for providing a collection-like view to the `SectionManager`.
-  #
-  # For actual collections, these methods provide access to its items. For
-  # all other types, a view of a single item should be provided for truthy
-  # values, or an empty view otherwise.
-  getSection: (object, property, iterator) ->
-    val = object[property]
-    if typeof val is 'object' and a = getAdaptor val
-      a.getSectionInner val, iterator
-    else if val
-      iterator val, 0
-
-  bindSection: (object, property, manager) ->
-    val = object[property]
-    if typeof val is 'object' and a = getAdaptor val
-      a.bindSectionInner val, manager
-
-  # The above `*Section` methods may rely on another type of adaptor to handle
-  # the property's value if it is an object. These methods are provided as
-  # interface between the two adaptors.
-  getSectionInner: (object, iterator) ->
-    if object.length?
-      iterator item, i for item, i in object
-    else if object
-      iterator object, 0
-
-  bindSectionInner: (object, manager) ->
-
-#### Adaptor Registry
-
-# List of registered adaptors.
-adaptors = [DefaultAdaptor]
-
-# Retrieve the adaptor that can handle the given context object.
-getAdaptor = (object) ->
-  for adaptor in adaptors
-    return adaptor if adaptor.check object
-
-# Register a new type of adaptor.
-registerAdaptor = (adaptor) ->
-  adaptors.unshift adaptor
-
-#### Adaptor Helpers
-
-# These just wrap the `getAdaptor` dance.
-
-getProperty = (object, property) ->
-  getAdaptor(object).getProperty object, property
-
-bindProperty = (object, property, handler) ->
-  getAdaptor(object).bindProperty object, property, handler
-
-getSection = (object, property, iterator) ->
-  getAdaptor(object).getSection object, property, iterator
-
-bindSection = (object, property, manager) ->
-  getAdaptor(object).bindSection object, property, manager
 
 
 # Section
