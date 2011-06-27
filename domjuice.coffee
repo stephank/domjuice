@@ -270,16 +270,15 @@ class VarContent extends BaseVarProp
   # an already in progress `add`.
   set: (value) =>
     old = for child in @el.childNodes when not child.ghost
-      child.ghost = true
+      child.ghost = yes
       child
-    @anim.remove old, content: true, =>
-      for child in old
-        @el.removeChild child
+    @anim.remove old, content: yes, =>
+      @el.removeChild child for child in old
       return
 
     textNode = @el.ownerDocument.createTextNode String value or ''
     @el.appendChild textNode
-    @anim.add textNode, content: true
+    @anim.add [textNode], content: yes
 
 #### Partial Content
 
@@ -306,8 +305,6 @@ class PartialContent
 #
 # Methods of this class are used by context adaptors to update the instances
 # of the section.
-#
-# FIXME: Implement animation.
 class SectionManager
   # Currently displaying the root or inner context value.
   innerValueSet: null
@@ -335,13 +332,20 @@ class SectionManager
   # and there is no inner context listener to change that, we can ditch the
   # root context listener.
   initialFill: ->
-    getSection @s.context, @propertyName, @add
+    refNode = @el.childNodes[@containerIndex] or null
+    initialAppend = (item) =>
+      @sections.push section = new @sectionClass item, @s
+      @el.insertBefore section.el, refNode
+
+    getSection @s.context, @propertyName, initialAppend
     if @innerValueSet = @sections.length isnt 0
       unless @listeners.context?
         @listeners.root?.unbind()
         @listeners.root = null
     else
-      getSection @s.root, @propertyName, @add
+      getSection @s.root, @propertyName, initialAppend
+
+    @adjustNeighbours @sections.length
 
   # Update triggered by the inner context. Override the root context if it
   # was current, otherwise just add as normal.
@@ -361,10 +365,17 @@ class SectionManager
   # item is an object, the section will descend into it as a subcontext.
   add: (item, index) =>
     section = new @sectionClass item, @s
-    refNode = @el.childNodes[@containerIndex + index] or null
-    @el.insertBefore section.el, refNode
-    @adjustNeighbours +1
     @sections.splice index, 0, section
+
+    refNode = @el.childNodes[@containerIndex] or null
+    until index is 0
+      refNode = refNode.nextSibling while refNode.ghost
+      refNode = refNode.nextSibling or null
+      index--
+
+    @el.insertBefore section.el, refNode
+    @anim.add [section.el], {}
+    @adjustNeighbours +1
 
   # Update triggered by the inner context. Make the root context current if
   # this was the last item.
@@ -384,8 +395,11 @@ class SectionManager
   remove: (index) ->
     [section] = @sections.splice index, 1
     section.finalize()
-    @el.removeChild @el.childNodes[@containerIndex + index]
-    @adjustNeighbours -1
+
+    section.el.ghost = yes
+    @anim.remove [section.el], {}, =>
+      @el.removeChild section.el
+      @adjustNeighbours -1
 
   # Update triggered by the inner context. Make the root context current if
   # there are no items after the refresh.
@@ -405,22 +419,25 @@ class SectionManager
   # that takes an iterator function. The iterator function is then called
   # repeatedly by the caller for each new item.
   refresh: (block) ->
-    for section in @sections
+    old = for section in @sections
       section.finalize()
-      @el.removeChild @el.childNodes[@containerIndex]
-    adjustment = -@sections.length
-    @sections = []
+      section.el
+    @anim.remove old, refresh: yes, =>
+      @el.removeChild child for child in old
+      @adjustNeighbours -old.length
 
     refNode = @el.childNodes[@containerIndex] or null
+    @sections = []; added = []
     block (item) ->
       @sections.push section = new @sectionClass item, @s
       @el.insertBefore section.el, refNode
-    adjustment += @sections.length
-
-    @adjustNeighbours adjustment
+      added.push section.el
+    @adjustNeighbours added.length
+    @anim.add added, refresh: yes
 
   # Helper used to adjust the `containerIndex` of neighbours.
   adjustNeighbours: (adjustment) ->
+    return if adjustment is 0
     for op in @s.opsByCid[@cid] when op.containerOrder > @containerOrder
       op.containerIndex += adjustment
     return
