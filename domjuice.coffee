@@ -258,11 +258,17 @@ class VarContent extends BaseVarProp
     super
     @anim = new @animatorKlass
 
+  createNode: (value) ->
+    doc = @el.ownerDocument
+    spanNode = doc.createElement 'span'
+    textNode = doc.createTextNode String value or ''
+    spanNode.appendChild textNode
+    spanNode
+
   # The initial set is not animated, and thus a lot simpler.
   initialSet: (value) ->
-    textNode = @el.ownerDocument.createTextNode String value or ''
     @el.innerHTML = ''
-    @el.appendChild textNode
+    @el.appendChild @createNode value
 
   # Transition out the old elements, and transition in the new element. When
   # rapidly refreshing content, we're careful not to double remove elements.
@@ -276,9 +282,9 @@ class VarContent extends BaseVarProp
       @el.removeChild child for child in old
       return
 
-    textNode = @el.ownerDocument.createTextNode String value or ''
-    @el.appendChild textNode
-    @anim.add [textNode], content: yes
+    node = @createNode value
+    @el.appendChild node
+    @anim.add [node], content: yes
 
 #### Partial Content
 
