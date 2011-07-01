@@ -147,6 +147,44 @@
       ok res.find('li').length is 0, 'list should be empty'
   </script>
 
+  <div id="neg-section-template" class="template">
+    <p section:="!nono"></p>
+  </div>
+  <script type="text/coffeescript">
+    test 'Negated section operation', 3, ->
+      res = build 'neg-section-template', nono: false
+      ok res.find('p').length is 1, "result should have a single paragraph"
+
+      res = build 'neg-section-template', nono: {}
+      ok res.find('p').length is 0, "result shouldn't have a paragraph"
+
+      res = build 'neg-section-template', nono: [{}, {}]
+      ok res.find('p').length is 0, "result shouldn't have a paragraph"
+
+    test 'Variable negated section', 6, ->
+      model = new Model nono: false
+
+      res = build 'neg-section-template', model
+      ok res.find('p').length is 1, "result should have a single paragraph"
+
+      model.set nono: true
+      ok res.find('p').length is 0, "result shouldn't have a paragraph"
+
+      collection = new Collection [{}, {}]
+
+      res = build 'neg-section-template', nono: collection
+      ok res.find('p').length is 0, "result shouldn't have a paragraph"
+
+      collection.remove collection.models[0]
+      ok res.find('p').length is 0, "result shouldn't have a paragraph"
+
+      collection.remove collection.models[0]
+      ok res.find('p').length is 1, "result should have a single paragraph"
+
+      collection.add {}
+      ok res.find('p').length is 0, "result shouldn't have a paragraph"
+  </script>
+
   <div id="root-ref-template" class="template">
     <p id="a1" content:="a"></p>
     <p id="b1" content:="b"></p>

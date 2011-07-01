@@ -304,21 +304,17 @@ class PartialContent
     @el.innerHTML = ''
     @el.appendChild @partial.el
 
-#### Section
+#### Section Common
 
 # The glue between parent and child sections. All sections, except the
-# template toplevel, are managed by one of these.
-#
-# Methods of this class are used by context adaptors to update the instances
-# of the section.
-class SectionManager
+# template toplevel, are managed by one of these. This is the base class for
+# regular and negated sections containing common functionality.
+class BaseSectionManager
   # Currently displaying the root or inner context value.
   innerValueSet: null
 
   # Bind to the root and inner context properties on instantiation.
   constructor: (@el, @s) ->
-    @sections = []
-
     @anim = new @animatorKlass
 
     @listeners = {}
@@ -331,6 +327,74 @@ class SectionManager
   finalize: ->
     @listeners.context?.unbind()
     @listeners.root?.unbind()
+
+  # Update triggered by the inner context. Override the root context if it
+  # was current, otherwise just add as normal.
+  contextAdd: (item, index) =>
+    if @innerValueSet
+      @add item, index
+    else
+      @innerValueSet = yes
+      @refresh (iter) ->
+        iter item
+
+  # Update triggered by the root context. Add only if it is current.
+  rootAdd: (item, index) =>
+    @add item, index unless @innerValueSet
+
+  # Update triggered by the inner context. Make the root context current if
+  # this was the last item.
+  contextRemove: (item, index) =>
+    if @numItems() is 1
+      @innerValueSet = no
+      @refresh (iter) =>
+        getSection @s.root, @propertyName, iter
+    else
+      @remove item, index
+
+  # Update triggered by the root context. Remove only if it is current.
+  rootRemove: (item, index) =>
+    @remove item, index unless @innerValueSet
+
+  # Update triggered by the inner context. Make the root context current if
+  # there are no items after the refresh.
+  #
+  # FIXME: Perhaps a more efficient way of doing this?
+  contextRefresh: (block) =>
+    @refresh block
+    unless @innerValueSet = @numItems() isnt 0
+      @refresh (iter) =>
+        getSection @s.root, @propertyName, iter
+
+  # Update triggered by the root context. Refresh only if it is current.
+  rootRefresh: (block) =>
+    @refresh block unless @innerValueSet
+
+  # Helper used to adjust the `containerIndex` of neighbours.
+  adjustNeighbours: (adjustment) ->
+    return if adjustment is 0
+    for op in @s.opsByCid[@cid] when op instanceof BaseSectionManager
+      op.containerIndex += adjustment if op.containerOrder > @containerOrder
+    return
+
+  # Subclasses should implement these.
+  initialFill: ->
+  numItems: ->
+  add: (item, index) ->
+  remove: (index) ->
+  refresh: (block) ->
+
+#### Regular Section
+
+# The regular section creates one section for  a truthy value, or multiple
+# sections for collections.
+class SectionManager extends BaseSectionManager
+  constructor: ->
+    super
+    @sections = []
+
+  # Helper to get the number of items we know of.
+  numItems: -> @sections.length
 
   # Create the initial sections using `getSection`.
   #
@@ -353,23 +417,9 @@ class SectionManager
 
     @adjustNeighbours @sections.length
 
-  # Update triggered by the inner context. Override the root context if it
-  # was current, otherwise just add as normal.
-  contextAdd: (item, index) =>
-    if @innerValueSet
-      @add item, index
-    else
-      @innerValueSet = yes
-      @refresh (iter) ->
-        iter item
-
-  # Update triggered by the root context. Add only if it is current.
-  rootAdd: (item, index) =>
-    @add item, index unless @innerValueSet
-
   # Helper to create a section for the given item at the given index. If the
   # item is an object, the section will descend into it as a subcontext.
-  add: (item, index) =>
+  add: (item, index) ->
     section = new @sectionClass item, @s
     @sections.splice index, 0, section
 
@@ -383,20 +433,6 @@ class SectionManager
     @anim.add [section.el], {}
     @adjustNeighbours +1
 
-  # Update triggered by the inner context. Make the root context current if
-  # this was the last item.
-  contextRemove: (item, index) =>
-    if @sections.length is 1
-      @innerValueSet = no
-      @refresh (iter) =>
-        getSection @s.root, @propertyName, iter
-    else
-      @remove item, index
-
-  # Update triggered by the root context. Remove only if it is current.
-  rootRemove: (item, index) =>
-    @remove item, index unless @innerValueSet
-
   # Helper to remove the section at the given index.
   remove: (index) ->
     [section] = @sections.splice index, 1
@@ -406,20 +442,6 @@ class SectionManager
     @anim.remove [section.el], {}, =>
       @el.removeChild section.el
       @adjustNeighbours -1
-
-  # Update triggered by the inner context. Make the root context current if
-  # there are no items after the refresh.
-  #
-  # FIXME: Perhaps a more efficient way of doing this?
-  contextRefresh: (block) =>
-    @refresh block
-    unless @innerValueSet = @sections.length isnt 0
-      @refresh (iter) =>
-        getSection @s.root, @propertyName, iter
-
-  # Update triggered by the root context. Refresh only if it is current.
-  rootRefresh: (block) =>
-    @refresh block unless @innerValueSet
 
   # Helper to replace all sections in one shot. The parameter is a function
   # that takes an iterator function. The iterator function is then called
@@ -441,12 +463,81 @@ class SectionManager
     @adjustNeighbours added.length
     @anim.add added, refresh: yes
 
-  # Helper used to adjust the `containerIndex` of neighbours.
-  adjustNeighbours: (adjustment) ->
-    return if adjustment is 0
-    for op in @s.opsByCid[@cid] when op.containerOrder > @containerOrder
-      op.containerIndex += adjustment
-    return
+#### Negated Section
+
+# Similar to a regular `SectionManager`, but draws a single section in the
+# parent context only if the property is falsy.
+class NegatedSectionManager extends BaseSectionManager
+  # The number of items we counted the property has.
+  countedItems: 0
+  # The currently displaying section or `null`.
+  currentSection: null
+
+  # The negated section needs only a count to get along.
+  numItems: -> @countedItems
+
+  # Check both the inner and root context, and if they're both falsy, create
+  # a section right away, without animation.
+  initialFill: ->
+    count = (item) => @countedItems++
+
+    getSection @s.context, @propertyName, count
+    if @innerValueSet = @countedItems isnt 0
+      unless @listeners.context?
+        @listeners.root?.unbind()
+        @listeners.root = null
+    else
+      getSection @s.root, @propertyName, count
+
+      if @countedItems is 0
+        @currentSection = section = new @sectionClass null, @s
+        refNode = @el.childNodes[@containerIndex] or null
+        @el.insertBefore section.el, refNode
+        @adjustNeighbours +1
+
+  # Helper called when an item is added. We simply remove the existing
+  # section if this was the first item to be added.
+  add: (item, index) ->
+    if @countedItems++ is 0
+      section = @currentSection
+      @currentSection = null
+
+      section.finalize()
+      @anim.remove [section.el], {}, =>
+        @el.removeChild section.el
+        @adjustNeighbours -1
+
+  # Helper called when an item is removed. If this was the last item, the
+  # property is now falsy, so create a section.
+  remove: (index) ->
+    if @countedItems-- is 1
+      @currentSection = section = new @sectionClass null, @s
+      refNode = @el.childNodes[@containerIndex] or null
+      @el.insertBefore section.el, refNode
+      @anim.add [section.el], {}
+      @adjustNeighbours +1
+
+  # Helper called when the property is refreshed. Count the number of new
+  # items, and either remove the existing or create one.
+  refresh: (block) ->
+    @countedSections = 0
+    block (item) => @countedItems++
+
+    if @countedItems isnt 0
+      if section = @currentSection
+        @currentSection = null
+        section.finalize()
+        @anim.remove [section.el], refresh: yes, =>
+          @el.removeChild section.el
+          @adjustNeighbours -1
+
+    else
+      unless @currentSection
+        @currentSection = section = new @sectionClass null, @s
+        refNode = @el.childNodes[@containerIndex] or null
+        @el.insertBefore section.el, refNode
+        @anim.add [section], refresh: yes
+        @adjustNeighbours +1
 
 
 # Section
@@ -551,12 +642,20 @@ buildSectionClass = (template) ->
       {nodeValue} = attribute
       node.removeAttributeNode attribute
 
-      addOpToElement node.parentNode, class extends SectionManager
-        propertyName: nodeValue
-        sectionClass: buildSectionClass(node)
-        containerIndex: index
-        containerOrder: originalIndex
-        animatorKlass: animation
+      if nodeValue.charAt(0) is '!'
+        addOpToElement node.parentNode, class extends NegatedSectionManager
+          propertyName: nodeValue.slice(1)
+          sectionClass: buildSectionClass(node)
+          containerIndex: index
+          containerOrder: originalIndex
+          animatorKlass: animation
+      else
+        addOpToElement node.parentNode, class extends SectionManager
+          propertyName: nodeValue
+          sectionClass: buildSectionClass(node)
+          containerIndex: index
+          containerOrder: originalIndex
+          animatorKlass: animation
 
       return 'remove'
 

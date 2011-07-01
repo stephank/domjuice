@@ -53,7 +53,7 @@ DOMJuice.registerAdaptor
     else if val
       iter val, 0
 
-  bindSection: (prop, man) ->
+  bindSection: (obj, prop, man) ->
     if obj instanceof Collection
       throw new Error "No properties on a collection."
 
