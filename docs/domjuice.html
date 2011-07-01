@@ -266,7 +266,7 @@ repeatedly by the caller for each new item.</p>             </td>             <t
 
     <span class="nv">refNode = </span><span class="nx">@el</span><span class="p">.</span><span class="nx">childNodes</span><span class="p">[</span><span class="nx">@containerIndex</span><span class="p">]</span> <span class="o">or</span> <span class="kc">null</span>
     <span class="vi">@sections = </span><span class="p">[];</span> <span class="nv">added = </span><span class="p">[]</span>
-    <span class="nx">block</span> <span class="nf">(item) -&gt;</span>
+    <span class="nx">block</span> <span class="p">(</span><span class="nx">item</span><span class="p">)</span> <span class="o">=&gt;</span>
       <span class="nx">@sections</span><span class="p">.</span><span class="nx">push</span> <span class="nv">section = </span><span class="k">new</span> <span class="nx">@sectionClass</span> <span class="nx">item</span><span class="p">,</span> <span class="nx">@s</span>
       <span class="nx">@el</span><span class="p">.</span><span class="nx">insertBefore</span> <span class="nx">section</span><span class="p">.</span><span class="nx">el</span><span class="p">,</span> <span class="nx">refNode</span>
       <span class="nx">added</span><span class="p">.</span><span class="nx">push</span> <span class="nx">section</span><span class="p">.</span><span class="nx">el</span>

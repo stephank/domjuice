@@ -434,7 +434,7 @@ class SectionManager
 
     refNode = @el.childNodes[@containerIndex] or null
     @sections = []; added = []
-    block (item) ->
+    block (item) =>
       @sections.push section = new @sectionClass item, @s
       @el.insertBefore section.el, refNode
       added.push section.el

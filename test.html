@@ -189,6 +189,145 @@
       ok res.find('p').text() is 'foobar', "paragraph should have content 'foobar'"
   </script>
 
+  <div id="content-anim-template" class="template">
+    <div content:="text" fx:="test">
+      placeholder
+    </div>
+  </div>
+  <script type="text/coffeescript">
+    test 'Content animation', 8, ->
+      DOMJuice.registerAnimation 'test', class TestAnimator
+
+        add: (elements, options) ->
+          ok not @addCalled, '`add` is called once'
+          @addCalled = yes
+
+          ok options.content, '`content` option should be set'
+
+          $el = $ elements
+          ok $el.length is 1 and $el.text() is 'bar', "`add` should be called with the 'bar' span"
+
+        remove: (elements, options, callback) ->
+          ok not @removeCalled, '`remove` is called once'
+          @removeCalled = yes
+
+          ok options.content, '`content` option should be set'
+
+          $el = $ elements
+          ok $el.length is 1 and $el.text() is 'foo', "`remove` is called with the 'foo' span"
+
+          $div = $el.parent()
+
+          stop 100
+          setTimeout ->
+            start()
+
+            ok $div.children().length is 2, 'div should have 2 children before callback'
+            do callback
+            ok $div.children().length is 1, 'div should have 1 child after callback'
+
+          , 0
+
+      model = new Model text: 'foo'
+      res = build 'content-anim-template', model
+      model.set text: 'bar'
+  </script>
+
+  <div id="section-anim-template" class="template">
+    <ul>
+      <li section:="items" fx:="test" content:="text"></li>
+    </ul>
+  </div>
+  <script type="text/coffeescript">
+    test 'Section add animation', 5, ->
+      DOMJuice.registerAnimation 'test', class TestAnimator
+
+        add: (elements, options) ->
+          ok not @addCalled, '`add` is called once.'
+          @addCalled = yes
+
+          $el = $ elements
+          ok $el.length is 1 and $el.text() is 'c', "`add` should be called with the 'c' list item"
+
+          $ul = $el.parent()
+          ok $ul.children().length is 3, 'list should have 3 items in `add`'
+
+          ok $ul.children().eq(1).text() is 'b', "second list item should be 'b'"
+          ok $ul.children().eq(2).text() is 'c', "third list item should be 'c'"
+
+        remove: (elements, options) ->
+          ok no, "`remove` shouldn't be called."
+
+      collection = new Collection [{ text: 'a' }, { text: 'b' }]
+      res = build 'section-anim-template', items: collection
+      collection.add text: 'c'
+
+    test 'Section remove animation', 6, ->
+      DOMJuice.registerAnimation 'test', class TestAnimator
+
+        add: (elements, options) ->
+          ok no, "`add` shouldn't be called."
+
+        remove: (elements, options, callback) ->
+          ok not @removeCalled, '`remove` is called once.'
+          @removeCalled = yes
+
+          $el = $ elements
+          ok $el.length is 1 and $el.text() is 'b', "`remove` should be called with the 'b' list item"
+
+          $ul = $el.parent()
+          ok $ul.children().length is 3, 'list should have 3 items before callback'
+          do callback
+          ok $ul.children().length is 2, 'list should have 2 items after callback'
+
+          ok $ul.children().eq(0).text() is 'a', "first list item should be 'a'"
+          ok $ul.children().eq(1).text() is 'c', "second list item should be 'c'"
+
+      collection = new Collection [{ text: 'a' }, { id: 'foo', text: 'b' }, { text: 'c' }]
+      res = build 'section-anim-template', items: collection
+      collection.remove 'foo'
+
+    test 'Section refresh animation', 10, ->
+      DOMJuice.registerAnimation 'test', class TestAnimator
+
+        add: (elements, options) ->
+          ok not @addCalled, '`add` is called once.'
+          @addCalled = yes
+
+          ok options.refresh, '`refresh` option should be set'
+
+          $el = $ elements
+          ok $el.length is 2, "`add` should be called with 2 list items"
+
+        remove: (elements, options, callback) ->
+          ok not @removeCalled, '`remove` is called once.'
+          @removeCalled = yes
+
+          ok options.refresh, '`refresh` option should be set'
+
+          $el = $ elements
+          ok $el.length is 1 and $el.text() is 'a', "`remove` should be called with the 'a' list item"
+
+          $ul = $el.parent()
+
+          stop 100
+          setTimeout ->
+            start()
+
+            ok $ul.children().length is 3, 'list should have 3 items before callback'
+            do callback
+            ok $ul.children().length is 2, 'list should have 2 items after callback'
+
+            ok $ul.children().eq(0).text() is 'b', "first list item should be 'b'"
+            ok $ul.children().eq(1).text() is 'c', "second list item should be 'c'"
+
+          , 0
+
+      collection = new Collection [{ text: 'a' }]
+      res = build 'section-anim-template', items: collection
+      collection.refresh [{ text: 'b' }, { text: 'c' }]
+  </script>
+
 
   <!-- QUnit boilerplate -->
   <h1 id="qunit-header">DOMJuice Test Suite</h1>
@@ -201,8 +340,8 @@
 
 
   <!-- Simple `content:=` animation test -->
-  <div id="content-anim-container"></div>
-  <div id="content-anim-template" class="template">
+  <div id="taglines-container"></div>
+  <div id="taglines-template" class="template">
     <h2>DOMJuice templating</h2>
     <p content:="tagline" fx:="seq-fade"></p>
   </div>
@@ -250,7 +389,7 @@
       index = Math.round(Math.random() * (taglines.length - 1))
       foobar.set tagline: taglines[index]
     , 5000
-    build('content-anim-template', foobar).appendTo('#content-anim-container')
+    build('taglines-template', foobar).appendTo('#taglines-container')
   </script>
 </body>
 </html>
