@@ -99,7 +99,7 @@ DefaultAdaptor =
       a.bindSectionInner val, manager
 
   # The above `*Section` methods may rely on another type of adaptor to handle
-  # the property's value if it is an object. These methods are provided as
+  # the property's value if it is an object. These methods are provided as an
   # interface between the two adaptors.
   getSectionInner: (object, iterator) ->
     if object.length?
@@ -146,7 +146,7 @@ bindSection = (object, property, manager) ->
 # Animators are classes that perform animations when DOMJuice changes
 # contents. What animation to perform is either determined by the global
 # `DOMJuice.defaultAnimation` or per operation using the `fx:=` attribute.
-#
+
 # The following is an animator that does nothing. It is the default and more
 # or less doubles as the interface description. There's no need to inherit
 # from this class.
@@ -156,8 +156,10 @@ class NoAnimation
   # `options.refresh` is set if this is a complete section refresh.
   add: (elements, options) ->
 
-  # Transition out the given elements. The callback should be called when the
-  # animation finishes, after which the elements will be removed from the DOM.
+  # Transition out the given elements. Similar to `add`, but with a callback
+  # that should be called when the animation finishes, after which the
+  # elements will be removed from the DOM. Animators should be prepared to
+  # deal with a `remove` interrupting an `add` animation.
   remove: (elements, options, callback) ->
     callback()
 
@@ -237,18 +239,18 @@ class BaseVarProp
 
   # Set helpers which do the actual fill and update based on a value.
   # Subclasses override these to set an attribute or an element's content.
-  initialSet: (value) ->
   set: (value) ->
+  initialSet: (value) ->
 
 #### Variable Attribute
 
 # Manages an element attribute with a variable value.
 class VarAttr extends BaseVarProp
-  initialSet: (value) ->
-    @set value
-
   set: (value) ->
     @el.setAttribute @attrName, String value or ''
+
+  initialSet: (value) ->
+    @set value
 
 #### Variable Content
 
@@ -258,6 +260,7 @@ class VarContent extends BaseVarProp
     super
     @anim = new @animatorKlass
 
+  # Helper used to create a span element, for animation, and a text node.
   createNode: (value) ->
     doc = @el.ownerDocument
     spanNode = doc.createElement 'span'
@@ -265,15 +268,8 @@ class VarContent extends BaseVarProp
     spanNode.appendChild textNode
     spanNode
 
-  # The initial set is not animated, and thus a lot simpler.
-  initialSet: (value) ->
-    @el.innerHTML = ''
-    @el.appendChild @createNode value
-
-  # Transition out the old elements, and transition in the new element. When
-  # rapidly refreshing content, we're careful not to double remove elements.
-  # However, animators should be prepared to deal with a `remove` interrupting
-  # an already in progress `add`.
+  # Transition out the current span, create a new one, and transition that in.
+  # When rapidly refreshing content, be careful not to double remove elements.
   set: (value) =>
     old = for child in @el.childNodes when not child.ghost
       child.ghost = yes
@@ -285,6 +281,11 @@ class VarContent extends BaseVarProp
     node = @createNode value
     @el.appendChild node
     @anim.add [node], content: yes
+
+  # The initial set is not animated, and thus a lot simpler.
+  initialSet: (value) ->
+    @el.innerHTML = ''
+    @el.appendChild @createNode value
 
 #### Partial Content
 
