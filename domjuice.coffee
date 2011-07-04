@@ -718,7 +718,7 @@ DOMJuice = (template, document) ->
     unless document ?= DOMJuice.document ? window?.document
       throw new Error "Cannot find a DOM Document to work with"
     tmp = document.createElement 'div'
-    tmp.innerHTML = template
+    tmp.innerHTML = template.replace /(^\s+|\s+$)/g, ''
     unless tmp.childNodes.length is 1
       throw new Error "Template should have exactly one root element"
     template = tmp.removeChild tmp.childNodes[0]
