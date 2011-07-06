@@ -3,16 +3,218 @@
 <head>
   <meta charset="utf-8">
   <title>DOMJuice</title>
-</head>
-<body>
 
-<h1>DOMJuice</h1>
-<p>Content will be here soon; it's early days. In the meantime:</p>
+  <link href='http://fonts.googleapis.com/css?family=Open+Sans&v2' rel='stylesheet' type='text/css'>
+  <link href='http://fonts.googleapis.com/css?family=Slackey&v1' rel='stylesheet' type='text/css'>
+  <link href='http://fonts.googleapis.com/css?family=Droid+Sans+Mono&v2' rel='stylesheet' type='text/css'>
+  <link href='index.css' rel='stylesheet' type='text/css'>
+
+  <!-- jQuery -->
+  <script src="http://code.jquery.com/jquery-latest.js"></script>
+
+  <!-- Backbone.js -->
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.1.6/underscore-min.js"></script>
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/backbone.js/0.3.3/backbone-min.js"></script>
+
+  <!-- CoffeeScript -->
+  <script src="http://jashkenas.github.com/coffee-script/extras/coffee-script.js"></script>
+
+  <!-- DOMJuice itself -->
+  <script src="domjuice.coffee" type="text/coffeescript"></script>
+  <script src="domjuice-backbone.coffee" type="text/coffeescript"></script>
+  <script src="domjuice-jquery.coffee" type="text/coffeescript"></script>
+</head>
+<body><div id="wrapper">
+
+
+<h1><abbr>DOM</abbr>Juice</h1>
+<section>
+<pre id="template">
+&lt;h2 content:="tagline" fx:="seq-fade"&gt;
+  Design placeholder
+&lt;/h2&gt;
+</pre>
+<div class="arrow">becomes</div>
+<div id="placeholder"></div>
+</section>
+
+<script type="text/coffeescript">
+  # A bunch of cheesy taglines.
+  taglines = [
+    "The missing juice for your DOM"
+    "I didn't know you liked trees"
+    "Go ahead, manipulate your data!"
+    "Did you see that? It *changed*"
+    "Shapeshifters, eat your heart out"
+    "Time doesn't get more real than this"
+    "Two words for you: Awww Yeah"
+    "Don't miss the cheesy taglines"
+    "Written in coffee, not while on coffee"
+    "I'm sure others will be interested"
+    "Mocking your existing view layer"
+    "Last night a DJ saved my life"
+    "Your end-users will cry joyful tears"
+    "It used to have a moustache"
+    "There it goes again!"
+    "Do not put DOM in a real juicer"
+  ]
+  # Use a simple Backbone model to get a tagline rotation going.
+  model = new Backbone.Model
+    tagline: "The Web App Poltergeist"
+  update = ->
+    maxIndex = taglines.length - 1
+    loop
+      index = Math.round(Math.random() * maxIndex)
+      tagline = taglines[index]
+      break unless tagline is model.get 'tagline'
+    model.set tagline: tagline
+  setInterval update, 5000
+
+  # Use the actual pre-contents, as template input.
+  markup = $("#template").text()
+
+  # Create and instantiate a template using the model as context.
+  HeaderTemplate = DOMJuice markup
+  header = new HeaderTemplate model
+
+  # Replace the placeholder div.
+  $('#placeholder').replaceWith header.el
+</script>
+
+
+<h3>It's a template engine…</h2>
+
+<p>
+…that grew from the desire to automate some of the repetitive tasks in
+building web applications.
+</p>
+
+<pre>
+Some example code is littered throughout this page.
+You'll find it dressed up in pre-formatted
+paragraphs such as this one.
+</pre>
+
+<p>
+Managing your DOM is often a trade-off between writing lots of tiny views for
+the smallest parts of your page, hooking up tons of event handlers to update
+specific elements, or ‘throwing in the towel’ and just updating swaths of page
+content at the cost of performance.
+</p>
+
+<p>Let's see if we can make this a bit easier.</p>
+
+
+<h3>What sets it apart</h3>
+
+<p>
+Writing DOMJuice templates is not too much unlike writing templates in other
+languages. What sets it apart is all the extras you get <em>after</em> you've
+written them.
+</p>
+
+<p>
+Here are some of the highlights of what to expect:
+</p>
+
+<h4>Stored in the DOM</h4>
+<p>
+As opposed to e.g. text-based templating languages, DOMJuice operations are
+all just special attributes on your elements. Operations are denoted using
+the <tt>:=</tt> operator.
+</p>
+
+<pre>
+&lt;div id:="domjuiceAttribute"
+     class="regularAttribute"&gt;
+&lt;/div&gt;
+
+&lt;img src:="url"&gt;
+</pre>
+
+<p>
+DOMJuice will still happily take a string as input, but you could just as
+well rip any DOM element from your page using JavaScript and use that.
+</p>
+
+<h4>Logic-less templating</h4>
+<p>
+Inspired by <a href="http://mustache.github.com/">Mustache</a>. Instead of
+embedding code, templates are built from sections and simple content or
+attribute value replacements.
+</p>
+
+<pre>
+&lt;div section:="friends"&gt;
+  &lt;img src:="mugshot" alt:="name"&gt;
+&lt;/div&gt;
+</pre>
+
+<h4>Updates automatically</h4>
+<p>
+DOMJuice has no dependencies, but provides a plugin interface to tie in
+with other libraries. Out of the box, a
+<a href="http://documentcloud.github.com/backbone/">Backbone.js</a> plugin is
+provided, which updates your views as you update your models and collections.
+It's magic!
+</p>
+
+<pre>
+&lt;h2 content:="tagline"&gt;
+  I will be replaced by the value of `tagline`,
+  and update automatically when it changes again!
+&lt;/h2&gt;
+</pre>
+
+<h4>Animates automatically</h4>
+<p>
+Plugins can also provide animations. This works for content as well as
+sections, to transition in and out items without a single line of code.
+</p>
+
+<pre>
+&lt;ul&gt;
+  &lt;li section:="items" fx:="slide"&gt;
+    &lt;span content:="name"&gt;&lt;/span&gt;:
+    &lt;span content:="quantity"&gt;&lt;/span&gt;
+  &lt;/li&gt;
+&lt;/h2&gt;
+</pre>
+
+<p>
+A few simple <a href="http://jquery.com">jQuery</a> based effects are bundled,
+such as the tagline fade effect you see above. But if these don't suit your
+needs, writing custom animators is peanuts, really.
+</p>
+
+
+<h3>Early days!</h3>
+
+<p>
+DOMJuice is still in a very early stage of development. There's no official
+release as of yet.
+</p>
+
+<p>
+On the other hand, feedback is very welcome. Feel free to send me a note on
+GitHub, or open issues for any bugs or browser incompatibilites you may find.
+</p>
+
+
+<h3>Resources</h3>
+
 <ul>
   <li><a href="http://github.com/stephank/domjuice">GitHub repository</a></li>
   <li><a href="docs/domjuice.html">Annotated source code</a></li>
   <li><a href="test.html">Test suite</a></li>
 </ul>
 
-</body>
+
+<footer>
+DOMJuice, © 2011 Stéphan Kochen.
+Made available under the MIT license.
+</footer>
+
+
+</div></body>
 </html>

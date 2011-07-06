@@ -377,57 +377,5 @@
   <script type="text/coffeescript">QUnit.start()</script>
 
 
-  <!-- Simple `content:=` animation test -->
-  <div id="taglines-container"></div>
-  <div id="taglines-template" class="template">
-    <h2>DOMJuice templating</h2>
-    <p content:="tagline" fx:="seq-fade"></p>
-  </div>
-  <script type="text/coffeescript">
-    DOMJuice.registerAnimation 'seq-fade', class SequentialFade
-      constructor: ->
-        @q = $ {}
-
-      add: (elements, options) ->
-        $elements = $ elements
-        $elements.hide()
-        @q.queue (next) ->
-          $elements.fadeIn next
-
-      remove: (elements, options, callback) ->
-        @q.queue (next) ->
-          $(elements).fadeOut ->
-            callback()
-            next()
-
-    foobar = new Model tagline: 'Say what?'
-    taglines = [
-      "The missing juice for your DOM"
-      "Would you like some coffee with that?"
-      "I didn't know you liked trees"
-      "Go ahead, manipulate your data!"
-      "Did you see that? It *changed* just now"
-      "Shapeshifters, eat your heart out"
-      "Time doesn't get more real than this"
-      "Seamless updates? In my DOM? More likely than you think"
-      "Two words for you: Awww Yeah"
-      "Don't miss the cheesy taglines"
-      "Written in coffee, not while on coffee"
-      "I'm sure others will be interested"
-      "I have altered the content. Pray I do not alter it any further"
-      "Mocking your existing view layer since just now"
-      "Last night a DJ saved my life"
-      "Your end-users will cry joyful tears"
-      "The WebApp Poltergeist"
-      "It used to have a moustache"
-      "There it goes again!"
-      "Not intended for use with a real juicer"
-    ]
-    setInterval ->
-      index = Math.round(Math.random() * (taglines.length - 1))
-      foobar.set tagline: taglines[index]
-    , 5000
-    build('taglines-template', foobar).appendTo('#taglines-container')
-  </script>
 </body>
 </html>
