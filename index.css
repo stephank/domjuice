@@ -60,7 +60,7 @@ a:hover {
 li {
   margin: 5px 0;
 }
-pre, tt {
+pre, code {
   font-family: 'Droid Sans Mono', monospace;
   font-size: 14px;
   line-height: 24px;

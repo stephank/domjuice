@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <title>DOMJuice</title>
 
-  <link href='http://fonts.googleapis.com/css?family=Open+Sans&v2' rel='stylesheet' type='text/css'>
-  <link href='http://fonts.googleapis.com/css?family=Slackey&v1' rel='stylesheet' type='text/css'>
-  <link href='http://fonts.googleapis.com/css?family=Droid+Sans+Mono&v2' rel='stylesheet' type='text/css'>
-  <link href='index.css' rel='stylesheet' type='text/css'>
+  <link href="http://fonts.googleapis.com/css?family=Open+Sans&amp;v2" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=Slackey&amp;v1" rel="stylesheet" type="text/css">
+  <link href="http://fonts.googleapis.com/css?family=Droid+Sans+Mono&amp;v2" rel="stylesheet" type="text/css">
+  <link href="index.css" rel="stylesheet" type="text/css">
 
   <!-- jQuery -->
   <script src="http://code.jquery.com/jquery-latest.js"></script>
@@ -82,7 +82,7 @@
 </script>
 
 
-<h3>It's a template engine…</h2>
+<h3>It's a template engine…</h3>
 
 <p>
 …that grew from the desire to automate some of the repetitive tasks in
@@ -121,7 +121,7 @@ Here are some of the highlights of what to expect:
 <p>
 As opposed to e.g. text-based templating languages, DOMJuice operations are
 all just special attributes on your elements. Operations are denoted using
-the <tt>:=</tt> operator.
+the <code>:=</code> operator.
 </p>
 
 <pre>
@@ -134,14 +134,15 @@ the <tt>:=</tt> operator.
 
 <p>
 DOMJuice will still happily take a string as input, but you could just as
-well rip any DOM element from your page using JavaScript and use that.
+well store a template as regular markup in your page, as done in the
+<a href="test.html">test suite</a>, for example.
 </p>
 
 <h4>Logic-less templating</h4>
 <p>
 Inspired by <a href="http://mustache.github.com/">Mustache</a>. Instead of
-embedding code, templates are built from sections and simple content or
-attribute value replacements.
+embedding code in templates, with DOMJuice you build from sections and simple
+content or attribute value replacements.
 </p>
 
 <pre>
