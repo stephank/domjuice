@@ -449,7 +449,7 @@ when building a template from string markup.</p>             </td>             <
     <span class="nx">unless</span> <span class="nb">document</span> <span class="o">?=</span> <span class="nx">DOMJuice</span><span class="p">.</span><span class="nb">document</span> <span class="o">?</span> <span class="nb">window</span><span class="o">?</span><span class="p">.</span><span class="nb">document</span>
       <span class="k">throw</span> <span class="k">new</span> <span class="nb">Error</span> <span class="s2">&quot;Cannot find a DOM Document to work with&quot;</span>
     <span class="nv">tmp = </span><span class="nb">document</span><span class="p">.</span><span class="nx">createElement</span> <span class="s1">&#39;div&#39;</span>
-    <span class="nv">tmp.innerHTML = </span><span class="nx">template</span>
+    <span class="nv">tmp.innerHTML = </span><span class="nx">template</span><span class="p">.</span><span class="nx">replace</span> <span class="sr">/(^\s+|\s+$)/g</span><span class="p">,</span> <span class="s1">&#39;&#39;</span>
     <span class="nx">unless</span> <span class="nx">tmp</span><span class="p">.</span><span class="nx">childNodes</span><span class="p">.</span><span class="nx">length</span> <span class="o">is</span> <span class="mi">1</span>
       <span class="k">throw</span> <span class="k">new</span> <span class="nb">Error</span> <span class="s2">&quot;Template should have exactly one root element&quot;</span>
     <span class="nv">template = </span><span class="nx">tmp</span><span class="p">.</span><span class="nx">removeChild</span> <span class="nx">tmp</span><span class="p">.</span><span class="nx">childNodes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
