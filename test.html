@@ -17,8 +17,8 @@
   <script>QUnit.config.autostart = false;</script>
 
   <!-- Backbone.js -->
-  <script src="http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.1.6/underscore-min.js"></script>
-  <script src="http://cdnjs.cloudflare.com/ajax/libs/backbone.js/0.3.3/backbone-min.js"></script>
+  <script src="http://documentcloud.github.com/underscore/underscore-min.js"></script>
+  <script src="http://documentcloud.github.com/backbone/backbone-min.js"></script>
 
   <!-- CoffeeScript -->
   <script src="http://jashkenas.github.com/coffee-script/extras/coffee-script.js"></script>
@@ -143,7 +143,7 @@
       collection.remove collection.models[1]
       ok res.find('li').length is 3, 'list should have 3 items'
 
-      collection.refresh []
+      collection.reset []
       ok res.find('li').length is 0, 'list should be empty'
   </script>
 
@@ -363,7 +363,7 @@
 
       collection = new Collection [{ text: 'a' }]
       res = build 'section-anim-template', items: collection
-      collection.refresh [{ text: 'b' }, { text: 'c' }]
+      collection.reset [{ text: 'b' }, { text: 'c' }]
   </script>
 
 

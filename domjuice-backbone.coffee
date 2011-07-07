@@ -13,12 +13,11 @@ Collection::_remove = (model, options={}) ->
   return unless model
   delete @_byId[model.id]
   delete @_byCid[model.cid]
-  delete model.collection
-  index = this.indexOf model
+  index = @indexOf model
   @models.splice index, 1
   @length--
   model.trigger 'remove', model, this, options, index unless options.silent
-  model.unbind 'all', @_boundOnModelEvent
+  @_removeReference model
   return model
 
 
@@ -95,11 +94,11 @@ DOMJuice.registerAdaptor
     obj.bind "remove", removeHandler = (_, _, _, idx) ->
       man.remove idx
 
-    obj.bind "refresh", refreshHandler = ->
+    obj.bind "reset", resetHandler = ->
       man.refresh (iter) ->
         obj.each iter
 
     unbind: ->
       obj.unbind "add", addHandler
       obj.unbind "remove", removeHandler
-      obj.unbind "refresh", refreshHandler
+      obj.unbind "reset", resetHandler
