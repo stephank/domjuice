@@ -6,9 +6,8 @@
 # Initial Setup
 # -------------
 
-# Fetch this here for easy access, and in the rare case someone overrides the
-# Node name. (Perhaps by accident.)
-{ELEMENT_NODE} = Node
+# Alias this for clarity.
+ELEMENT_NODE = 1
 
 # Name of the attribute we set on elements to identify their clone after an
 # entire tree of template nodes has been cloned with `cloneNode`.

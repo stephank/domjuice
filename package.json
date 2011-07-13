@@ -1,0 +1,28 @@
+{
+  "name": "domjuice",
+  "version": "0.0.0",
+  "description": "DOM-aware dynamic templates",
+
+  "homepage": "http://stephank.github.com/domjuice/",
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/stephank/domjuice.git"
+  },
+  "author": {
+    "name": "Stéphan Kochen",
+    "email": "stephan@kochen.nl",
+    "url": "http://stephan.kochen.nl/"
+  },
+
+  "engines": {
+    "node": "0.4"
+  },
+  "dependencies": {
+    "coffee-script": "1"
+  },
+  "devDependencies": {
+    "jsdom": "0.2"
+  },
+
+  "main": "./index.js"
+}
