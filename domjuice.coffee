@@ -585,7 +585,8 @@ class Section
     # FIXME: Do we want to try clean up non-`BaseVarProp`s here too?
     @opsByCid = for elementOps in ops then for op in elementOps
       op.initialFill()
-      op unless op instanceof BaseVarProp and not op.willUpdate
+      continue if op instanceof BaseVarProp and not op.willUpdate
+      op
 
   # DOMJuice templates require cleaning up, to clear back-references that are
   # kept by event listeners installed on context objects. Properly calling

@@ -35,18 +35,27 @@
     window.Collection = Backbone.Collection
 
     # Helper to quickly build a template from an existing element by ID.
-    window.template = (id) ->
+    window.getTemplate = (id) ->
       element = $("##{id}")[0].cloneNode yes
       $(element).removeClass 'template'
       element.id = ''
       DOMJuice element
 
     # Helper to quickly run a template from an existing element and a context.
-    # Takes the element ID, the context, and returns a jQuery object for the resulting element.
-    window.build = (id, context) ->
-      klass = template id
+    window.getResult = (id, context, block) ->
+      klass = getTemplate id
       instance = new klass context
-      $ instance.el
+      block instance
+      instance.finalize()
+
+    # Same as the above, but returns the jQuery object of the template result.
+    window.getResultEl = (id, context, block) ->
+      unless block
+        block = context
+        context = null
+
+      getResult id, context, (instance) ->
+        block $ instance.el
 
   </script>
 </head>
@@ -60,8 +69,8 @@
   </div>
   <script type="text/coffeescript">
     test 'Basic template with DOM input', ->
-      res = build 'basic-template'
-      ok res.find('p').length is 1, "result should match template content"
+      getResultEl 'basic-template', (res) ->
+        ok res.find('p').length is 1, "result should match template content"
 
     test 'Basic template with string markup input', ->
       template = DOMJuice '<div><p></p></div>'
@@ -74,21 +83,21 @@
   </div>
   <script type="text/coffeescript">
     test 'Basic attribute operation', 2, ->
-      res = build 'varattr-template', cssClass: 'foobar'
-      ok res.find('p').hasClass('foobar'), "paragraph tag should have class 'foobar'"
+      getResultEl 'varattr-template', cssClass: 'foobar', (res) ->
+        ok res.find('p').hasClass('foobar'), "paragraph tag should have class 'foobar'"
 
-      res = build 'varattr-template'
-      ok not res.find('p').hasClass('undefined'), "paragraph tag shouldn't have class 'undefined'"
+      getResultEl 'varattr-template', (res) ->
+        ok not res.find('p').hasClass('undefined'), "paragraph tag shouldn't have class 'undefined'"
 
     test 'Variable attribute', 3, ->
       model = new Model cssClass: 'foobar'
 
-      res = build 'varattr-template', model
-      ok res.find('p').hasClass('foobar'), "paragraph tag should have class 'foobar'"
+      getResultEl 'varattr-template', model, (res) ->
+        ok res.find('p').hasClass('foobar'), "paragraph tag should have class 'foobar'"
 
-      model.set cssClass: 'baz'
-      ok not res.find('p').hasClass('foobar'), "paragraph tag should no longer have class 'foobar'"
-      ok res.find('p').hasClass('baz'), "paragraph tag should have class 'baz'"
+        model.set cssClass: 'baz'
+        ok not res.find('p').hasClass('foobar'), "paragraph tag should no longer have class 'foobar'"
+        ok res.find('p').hasClass('baz'), "paragraph tag should have class 'baz'"
   </script>
 
   <div id="varcontent-template" class="template">
@@ -96,20 +105,20 @@
   </div>
   <script type="text/coffeescript">
     test 'Basic content operation', 2, ->
-      res = build 'varcontent-template', text: 'foobar'
-      ok res.find('p').text() is 'foobar', "paragraph should have text foobar"
+      getResultEl 'varcontent-template', text: 'foobar', (res) ->
+        ok res.find('p').text() is 'foobar', "paragraph should have text foobar"
 
-      res = build 'varcontent-template'
-      ok res.find('p').text() is '', "paragraph should be empty"
+      getResultEl 'varcontent-template', (res) ->
+        ok res.find('p').text() is '', "paragraph should be empty"
 
     test 'Variable content', 2, ->
       model = new Model text: 'foobar'
 
-      res = build 'varcontent-template', model
-      ok res.find('p').text() is 'foobar', "paragraph should have content foobar"
+      getResultEl 'varcontent-template', model, (res) ->
+        ok res.find('p').text() is 'foobar', "paragraph should have content foobar"
 
-      model.set text: false
-      ok res.find('p').text() is '', "paragraph should be empty"
+        model.set text: false
+        ok res.find('p').text() is '', "paragraph should be empty"
   </script>
 
   <div id="section-template" class="template">
@@ -119,32 +128,32 @@
   </div>
   <script type="text/coffeescript">
     test 'Basic section operation', 4, ->
-      res = build 'section-template', items: [{}, {}, {}]
-      ok res.find('li').length is 3, 'list should have 3 items'
+      getResultEl 'section-template', items: [{}, {}, {}], (res) ->
+        ok res.find('li').length is 3, 'list should have 3 items'
 
-      res = build 'section-template', items: {}
-      ok res.find('li').length is 1, 'list should have 1 item'
+      getResultEl 'section-template', items: {}, (res) ->
+        ok res.find('li').length is 1, 'list should have 1 item'
 
-      res = build 'section-template', items: true
-      ok res.find('li').length is 1, 'list should have 1 item'
+      getResultEl 'section-template', items: true, (res) ->
+        ok res.find('li').length is 1, 'list should have 1 item'
 
-      res = build 'section-template', items: false
-      ok res.find('li').length is 0, 'list should be empty'
+      getResultEl 'section-template', items: false, (res) ->
+        ok res.find('li').length is 0, 'list should be empty'
 
     test 'Variable sized section', 4, ->
       collection = new Collection [{}, {}, {}]
 
-      res = build 'section-template', items: collection
-      ok res.find('li').length is 3, 'list should have 3 items'
+      getResultEl 'section-template', items: collection, (res) ->
+        ok res.find('li').length is 3, 'list should have 3 items'
 
-      collection.add {}
-      ok res.find('li').length is 4, 'list should have 4 items'
+        collection.add {}
+        ok res.find('li').length is 4, 'list should have 4 items'
 
-      collection.remove collection.models[1]
-      ok res.find('li').length is 3, 'list should have 3 items'
+        collection.remove collection.models[1]
+        ok res.find('li').length is 3, 'list should have 3 items'
 
-      collection.reset []
-      ok res.find('li').length is 0, 'list should be empty'
+        collection.reset []
+        ok res.find('li').length is 0, 'list should be empty'
   </script>
 
   <div id="neg-section-template" class="template">
@@ -152,37 +161,37 @@
   </div>
   <script type="text/coffeescript">
     test 'Negated section operation', 3, ->
-      res = build 'neg-section-template', nono: false
-      ok res.find('p').length is 1, "result should have a single paragraph"
+      getResultEl 'neg-section-template', nono: false, (res) ->
+        ok res.find('p').length is 1, "result should have a single paragraph"
 
-      res = build 'neg-section-template', nono: {}
-      ok res.find('p').length is 0, "result shouldn't have a paragraph"
+      getResultEl 'neg-section-template', nono: {}, (res) ->
+        ok res.find('p').length is 0, "result shouldn't have a paragraph"
 
-      res = build 'neg-section-template', nono: [{}, {}]
-      ok res.find('p').length is 0, "result shouldn't have a paragraph"
+      getResultEl 'neg-section-template', nono: [{}, {}], (res) ->
+        ok res.find('p').length is 0, "result shouldn't have a paragraph"
 
     test 'Variable negated section', 6, ->
       model = new Model nono: false
 
-      res = build 'neg-section-template', model
-      ok res.find('p').length is 1, "result should have a single paragraph"
+      getResultEl 'neg-section-template', model, (res) ->
+        ok res.find('p').length is 1, "result should have a single paragraph"
 
-      model.set nono: true
-      ok res.find('p').length is 0, "result shouldn't have a paragraph"
+        model.set nono: true
+        ok res.find('p').length is 0, "result shouldn't have a paragraph"
 
       collection = new Collection [{}, {}]
 
-      res = build 'neg-section-template', nono: collection
-      ok res.find('p').length is 0, "result shouldn't have a paragraph"
+      getResultEl 'neg-section-template', nono: collection, (res) ->
+        ok res.find('p').length is 0, "result shouldn't have a paragraph"
 
-      collection.remove collection.models[0]
-      ok res.find('p').length is 0, "result shouldn't have a paragraph"
+        collection.remove collection.models[0]
+        ok res.find('p').length is 0, "result shouldn't have a paragraph"
 
-      collection.remove collection.models[0]
-      ok res.find('p').length is 1, "result should have a single paragraph"
+        collection.remove collection.models[0]
+        ok res.find('p').length is 1, "result should have a single paragraph"
 
-      collection.add {}
-      ok res.find('p').length is 0, "result shouldn't have a paragraph"
+        collection.add {}
+        ok res.find('p').length is 0, "result shouldn't have a paragraph"
   </script>
 
   <div id="root-ref-template" class="template">
@@ -199,19 +208,19 @@
   </div>
   <script type="text/coffeescript">
     test 'Root context reference', 6, ->
-      res = build 'root-ref-template',
+      context =
         a: 1, b: 2
         level2:
           a: 3
           level3:
             b: 4
-
-      ok res.find('#a1').text() is '1', 'a1 should contain 1'
-      ok res.find('#b1').text() is '2', 'b1 should contain 2'
-      ok res.find('#a2').text() is '3', 'a2 should contain 3'
-      ok res.find('#b2').text() is '2', 'b2 should contain 2'
-      ok res.find('#a3').text() is '1', 'a3 should contain 1'
-      ok res.find('#b3').text() is '4', 'b3 should contain 4'
+      getResultEl 'root-ref-template', context, (res) ->
+        ok res.find('#a1').text() is '1', 'a1 should contain 1'
+        ok res.find('#b1').text() is '2', 'b1 should contain 2'
+        ok res.find('#a2').text() is '3', 'a2 should contain 3'
+        ok res.find('#b2').text() is '2', 'b2 should contain 2'
+        ok res.find('#a3').text() is '1', 'a3 should contain 1'
+        ok res.find('#b3').text() is '4', 'b3 should contain 4'
   </script>
 
   <div id="partial-parent-template" class="template">
@@ -222,9 +231,9 @@
   </div>
   <script type="text/coffeescript">
     test 'Basic partial', 1, ->
-      DOMJuice.partials['child'] = template 'partial-child-template'
-      res = build 'partial-parent-template', text: 'foobar'
-      ok res.find('p').text() is 'foobar', "paragraph should have content 'foobar'"
+      DOMJuice.partials['child'] = getTemplate 'partial-child-template'
+      getResultEl 'partial-parent-template', text: 'foobar', (res) ->
+        ok res.find('p').text() is 'foobar', "paragraph should have content 'foobar'"
   </script>
 
   <div id="content-anim-template" class="template">
@@ -267,8 +276,8 @@
           , 0
 
       model = new Model text: 'foo'
-      res = build 'content-anim-template', model
-      model.set text: 'bar'
+      getResultEl 'content-anim-template', model, (res) ->
+        model.set text: 'bar'
   </script>
 
   <div id="section-anim-template" class="template">
@@ -297,8 +306,8 @@
           ok no, "`remove` shouldn't be called."
 
       collection = new Collection [{ text: 'a' }, { text: 'b' }]
-      res = build 'section-anim-template', items: collection
-      collection.add text: 'c'
+      getResultEl 'section-anim-template', items: collection, (res) ->
+        collection.add text: 'c'
 
     test 'Section remove animation', 6, ->
       DOMJuice.registerAnimation 'test', class TestAnimator
@@ -322,8 +331,8 @@
           ok $ul.children().eq(1).text() is 'c', "second list item should be 'c'"
 
       collection = new Collection [{ text: 'a' }, { id: 'foo', text: 'b' }, { text: 'c' }]
-      res = build 'section-anim-template', items: collection
-      collection.remove 'foo'
+      getResultEl 'section-anim-template', items: collection, (res) ->
+        collection.remove 'foo'
 
     test 'Section refresh animation', 10, ->
       DOMJuice.registerAnimation 'test', class TestAnimator
@@ -362,8 +371,8 @@
           , 0
 
       collection = new Collection [{ text: 'a' }]
-      res = build 'section-anim-template', items: collection
-      collection.reset [{ text: 'b' }, { text: 'c' }]
+      getResultEl 'section-anim-template', items: collection, (res) ->
+        collection.reset [{ text: 'b' }, { text: 'c' }]
   </script>
 
 
