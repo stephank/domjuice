@@ -2,7 +2,7 @@
 
 // You'd normally just require DOMJuice:
 //var DOMJuice = require('domjuice');
-// We do this instead to make things wrong from the current directory:
+// We do this instead to make things work from the current directory:
 var DOMJuice = require('./');
 
 // Use jsdom to get a DOM environment server-side.

@@ -59,7 +59,7 @@ eachNode = (rootNode, callback) ->
 # Adaptors are used to access and listen for changes to properties on
 # different types of objects and collections.
 #
-# Listening for changes works a bit differently form the `bind` methods in,
+# Listening for changes works a bit differently from the `bind` methods in,
 # say, Backbone.js or jQuery. The `bind` methods of adaptors should return
 # a handle object or nothing. Handle objects are expected to have a `unbind`
 # method taking no parameters.
