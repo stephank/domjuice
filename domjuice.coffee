@@ -599,6 +599,9 @@ class Section
         op.finalize()
     return
 
+  # Get the HTML for the current state of the DOM.
+  html: -> @el.outerHTML
+
 # The workhorse that builds Section subclasses for templates or subsections.
 buildSectionClass = (template) ->
   opsByCid = []
@@ -659,7 +662,6 @@ buildSectionClass = (template) ->
 
       return 'remove'
 
-
     # Check for a `content:=` operation, and skip the contents of the element
     # if found. Content may be there as a design placeholder.
     if attribute = node.getAttributeNode 'content:'
@@ -715,7 +717,11 @@ buildSectionClass = (template) ->
 DOMJuice = (template, document) ->
   if typeof template is 'string'
     unless document ?= DOMJuice.document ? window?.document
-      throw new Error "Cannot find a DOM Document to work with"
+      try
+        {jsdom} = require 'jsdom'
+        document = jsdom()
+      catch e
+        throw new Error "Cannot find a DOM Document to work with"
     tmp = document.createElement 'div'
     tmp.innerHTML = template.replace /(^\s+|\s+$)/g, ''
     unless tmp.childNodes.length is 1
@@ -729,6 +735,21 @@ DOMJuice = (template, document) ->
     parentNode.removeChild template
 
   buildSectionClass template
+
+
+# Short-hand for creating and instantiating a template.
+DOMJuice.run = (template, context) ->
+  unless template instanceof Section
+    template = DOMJuice template
+  new template context
+
+
+# Short-hand for running a template, then getting the HTML.
+DOMJuice.html = (template, context) ->
+  output = DOMJuice.run template, context
+  retval = output.html()
+  output.finalize()
+  retval
 
 
 # Export as global `DOMJuice` or a CommonJS module.
