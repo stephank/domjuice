@@ -47,7 +47,7 @@ DOMJuice.registerAdaptor
       throw new Error "No properties on a collection."
 
     val = obj.get prop
-    if typeof val is 'object' and a = getAdaptor val
+    if typeof val is 'object' and a = DOMJuice.getAdaptor val
       a.getSectionInner val, iter
     else if val
       iter val, 0
@@ -62,7 +62,7 @@ DOMJuice.registerAdaptor
       innerListener?.unbind()
 
       man.refresh (iter) ->
-        if typeof val is 'object' and a = getAdaptor val
+        if typeof val is 'object' and a = DOMJuice.getAdaptor val
           a.getSectionInner val, iter
           innerListener = a.bindSectionInner val, man
         else if val
