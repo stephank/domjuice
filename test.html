@@ -221,6 +221,13 @@
         ok res.find('#b2').text() is '2', 'b2 should contain 2'
         ok res.find('#a3').text() is '1', 'a3 should contain 1'
         ok res.find('#b3').text() is '4', 'b3 should contain 4'
+
+    test 'Nested Backbone models', 1, ->
+      context =
+        level2: new Model
+          level3: new Collection [{ b: 4 }]
+      getResultEl 'root-ref-template', context, (res) ->
+        ok res.find('#b3').text() is '4', 'b3 should contain 4'
   </script>
 
   <div id="partial-parent-template" class="template">

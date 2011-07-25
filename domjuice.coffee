@@ -390,8 +390,8 @@ class BaseSectionManager
 # sections for collections.
 class SectionManager extends BaseSectionManager
   constructor: ->
-    super
     @sections = []
+    super
 
   # Helper to get the number of items we know of.
   numItems: -> @sections.length
