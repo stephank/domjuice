@@ -69,6 +69,10 @@ DOMJuice.registerAdaptor
           iter val
           innerListener = null
 
+    val = obj.get prop
+    if typeof val is 'object' and a = DOMJuice.getAdaptor val
+        innerListener = a.bindSectionInner val, man
+
     unbind: ->
       obj.unbind event, handler
       innerListener?.unbind()
