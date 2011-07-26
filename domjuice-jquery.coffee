@@ -6,7 +6,7 @@
 # Straight-forward fade animation.
 DOMJuice.registerAnimation 'fade', class Fade
   add: (elements, options) ->
-    $(elements).fadeIn()
+    $(elements).hide().fadeIn()
 
   remove: (elements, options, callback) ->
     $(elements).fadeOut callback
@@ -33,7 +33,7 @@ DOMJuice.registerAnimation 'seq-fade', class SequentialFade
 # Straight-forward slide animation.
 DOMJuice.registerAnimation 'slide', class Slide
   add: (elements, options) ->
-    $(elements).slideDown()
+    $(elements).hide().slideDown()
 
   remove: (elements, options, callback) ->
     $(elements).slideUp callback
