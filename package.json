@@ -20,7 +20,7 @@
   "dependencies": {
     "coffee-script": "1"
   },
-  "dependencies": {
+  "devDependencies": {
     "jsdom": "0.2"
   },
 
