@@ -718,11 +718,7 @@ buildSectionClass = (template) ->
 DOMJuice = (template, document) ->
   if typeof template is 'string'
     unless document ?= DOMJuice.document ? window?.document
-      try
-        {jsdom} = require 'jsdom'
-        document = jsdom()
-      catch e
-        throw new Error "Cannot find a DOM Document to work with"
+      throw new Error "Cannot find a DOM Document to work with"
     tmp = document.createElement 'div'
     tmp.innerHTML = template.replace /(^\s+|\s+$)/g, ''
     unless tmp.childNodes.length is 1

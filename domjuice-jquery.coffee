@@ -2,6 +2,11 @@
 #     Made available under the MIT license.
 #     http://stephank.github.com/domjuice
 
+# This doesn't make a whole lot of sense server-side.
+# We aim for just Browserify and plain JS support here.
+DOMJuice ?= require './domjuice'
+$ ?= require 'jquery-browserify'
+
 
 # Straight-forward fade animation.
 DOMJuice.registerAnimation 'fade', class Fade

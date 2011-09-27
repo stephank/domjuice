@@ -2,6 +2,9 @@
 #     Made available under the MIT license.
 #     http://stephank.github.com/domjuice
 
+DOMJuice ?= require './domjuice'
+Backbone ?= require 'backbone'
+
 
 {Model, Collection} = Backbone
 

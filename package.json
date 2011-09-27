@@ -18,11 +18,12 @@
     "node": "0.4"
   },
   "dependencies": {
-    "coffee-script": "1"
-  },
-  "devDependencies": {
-    "jsdom": "0.2"
+    "coffee-script": "1",
+    "jsdom": "0.2",
+    "backbone": "0.5",
+    "jquery-browserify": "1.6"
   },
 
-  "main": "./index.js"
+  "main": "./wrap-coffee.js",
+  "browserify": "./wrap-browser.coffee"
 }
